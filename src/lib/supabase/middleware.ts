@@ -1,0 +1,82 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+import { Database } from "@/types/supabase";
+
+export async function updateSession(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({
+    request,
+  });
+
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          supabaseResponse = NextResponse.next({
+            request,
+          });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  // Authenticate user against Supabase Auth service (GetUser is more secure than GetSession)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const isLoginPage = request.nextUrl.pathname.startsWith("/login");
+  const isAuthPage = request.nextUrl.pathname === "/" || isLoginPage;
+
+  // 1. Unauthenticated users: redirect to /login
+  if (!user && !isAuthPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
+  // 2. Authenticated users trying to access login/landing: redirect to /inbox
+  if (user && isAuthPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/inbox";
+    return NextResponse.redirect(url);
+  }
+
+  // 3. Role-based route guards
+  if (user) {
+    // Retrieve role from public.user table
+    const { data: profile } = await (supabase.from("user") as any)
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    // Guard /dashboard: leads or admins only
+    if (request.nextUrl.pathname.startsWith("/dashboard")) {
+      if (!profile || !["lead", "admin"].includes(profile.role)) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/inbox";
+        return NextResponse.redirect(url);
+      }
+    }
+
+    // Guard /settings: admins only
+    if (request.nextUrl.pathname.startsWith("/settings")) {
+      if (!profile || profile.role !== "admin") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/inbox";
+        return NextResponse.redirect(url);
+      }
+    }
+  }
+
+  return supabaseResponse;
+}

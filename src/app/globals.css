@@ -1,0 +1,90 @@
+@import "../../tokens/variables.css";
+@import "tailwindcss";
+
+@theme {
+  /* Semantic Colors mapped to Figma Tokens (Light Mode) */
+  --color-surface: var(--color-neutral-1-500); /* #f8fafc (off-white page background) */
+  --color-surface-raised: var(--color-neutral-1-50); /* #feffff (pure white card/row background) */
+  --color-surface-overlay: var(--color-neutral-1-50); /* #feffff (pure white modals/dropdowns) */
+  --color-surface-internal-note: #fefbe8; /* Soft light warm gold for internal agent notes */
+  --color-border: var(--color-neutral-1-600); /* #e2e4e5 (light grey border) */
+  --color-text-primary: var(--color-neutral-2-900); /* #0a0a0b (near-black primary text) */
+  --color-text-secondary: var(--color-neutral-2-300); /* #646466 (medium grey secondary text) */
+  --color-text-muted: var(--color-neutral-2-200); /* #959596 (muted placeholder text) */
+  --color-accent: var(--color-primary-500); /* #2b7fff (blue accent) */
+  --color-accent-hover: var(--color-primary-600); /* #2774e8 (darker blue hover) */
+  --color-success: var(--color-success-600); /* #00b749 (success/resolved status) */
+  --color-warning: var(--color-warning-600); /* #e78c00 (warning/pending status) */
+  --color-danger: var(--color-error-600); /* #e42831 (danger/urgent status) */
+  --color-escalated: var(--color-accent-600); /* #443461 (escalated status) */
+  --color-info: var(--color-primary-600); /* #2774e8 (open status) */
+
+  /* Fonts */
+  --font-sans: var(--font-ibm-plex-sans), sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Typography Sizes */
+  --text-page-heading: 1.25rem; /* 20px */
+  --text-section-heading: 0.875rem; /* 14px */
+  --text-body: 0.875rem; /* 14px */
+  --text-body-sm: 0.75rem; /* 12px */
+  --text-label: 0.6875rem; /* 11px */
+  --text-mono: 0.75rem; /* 12px */
+}
+
+/* Base resets & styling */
+html, body {
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-family: var(--font-ibm-plex-sans), sans-serif;
+  min-height: 100vh;
+}
+
+/* Custom classes for Typography roles mapped from design-system.md */
+.text-page-heading {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.text-section-heading {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.text-body {
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.text-body-sm {
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.text-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+}
+
+.text-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* Global utility classes */
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  outline: none;
+  ring: 2px solid var(--color-primary-500);
+}
