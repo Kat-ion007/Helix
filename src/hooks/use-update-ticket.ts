@@ -1,11 +1,28 @@
 "use client"
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useState } from "react"
 import { supabase } from "@/lib/supabase/browser"
-import { useTicketStore } from "@/store/ticket-store"
+import { useTicketStore, TicketWithDetails } from "@/store/ticket-store"
 import { toast } from "@/store/toast-store"
 import { TicketStatus, TicketPriority } from "@/types"
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+
+  // Supabase PostgREST error shape: { message, details, hint, code }
+  if (typeof err === "object" && err !== null) {
+    const pgErr = err as { message?: string; code?: string }
+    if (pgErr.message) return pgErr.message
+
+    // PGRST116: .single() returned 0 rows — typically an RLS denial
+    // 42501: PostgreSQL insufficient_privilege — RLS WITH CHECK rejection
+    if (pgErr.code === "PGRST116" || pgErr.code === "42501") {
+      return "Update blocked — you may not have permission to modify this ticket."
+    }
+  }
+
+  return "Failed to update ticket. Rollback applied."
+}
 
 export function useUpdateTicket() {
   const { getTicket, upsertTicket } = useTicketStore()
@@ -18,7 +35,7 @@ export function useUpdateTicket() {
       priority?: TicketPriority
       assigned_to?: string | null
     }
-  ) => {
+  ): Promise<void> => {
     // 1. Snapshot for rollback
     const previous = getTicket(ticketId)
     if (!previous) return
@@ -28,12 +45,13 @@ export function useUpdateTicket() {
       ...previous,
       ...updates,
       updated_at: new Date().toISOString(),
-    } as any)
+    } as TicketWithDetails)
 
     setUpdating(true)
 
     try {
-      const { data, error } = await (supabase.from("ticket") as any)
+      const { data, error } = await supabase
+        .from("ticket")
         .update(updates)
         .eq("id", ticketId)
         .select(
@@ -56,14 +74,18 @@ export function useUpdateTicket() {
 
       if (error) throw error
 
+      if (!data) {
+        throw new Error("Update blocked — you may not have permission to modify this ticket.")
+      }
+
       // 3. Confirm with server state
-      upsertTicket(data as any)
+      upsertTicket(data as TicketWithDetails)
       toast.success("Ticket updated successfully.")
-    } catch (err: any) {
+    } catch (err: unknown) {
       // 4. Rollback on failure
-      console.error("[useUpdateTicket] Error updating ticket:", err)
+      console.error("[useUpdateTicket] Error updating ticket:", JSON.stringify(err, null, 2), err)
       upsertTicket(previous)
-      toast.error(err?.message || "Failed to update ticket. Rollback applied.")
+      toast.error(getErrorMessage(err))
     } finally {
       setUpdating(false)
     }

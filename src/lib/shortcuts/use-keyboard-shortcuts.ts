@@ -1,13 +1,29 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 export function useKeyboardShortcuts(
   shortcuts: Record<string, () => void>,
   disabled: boolean = false
 ) {
+  const [isMobile, setIsMobile] = useState(false)
+
   useEffect(() => {
-    if (disabled) return
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    // Set initial value on client
+    handleResize()
+    
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
+  const shouldDisable = disabled || isMobile
+
+  useEffect(() => {
+    if (shouldDisable) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger if user is typing in inputs or editable elements
@@ -35,5 +51,6 @@ export function useKeyboardShortcuts(
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [shortcuts, disabled])
+  }, [shortcuts, shouldDisable])
 }
+

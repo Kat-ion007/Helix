@@ -1,5 +1,4 @@
 "use client"
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase/browser"
@@ -13,6 +12,20 @@ import { Users, CheckSquare, X, ShieldAlert } from "lucide-react"
 interface Agent {
   id: string
   name: string
+}
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error) return err.message
+
+  if (typeof err === "object" && err !== null) {
+    const pgErr = err as { message?: string; code?: string }
+    if (pgErr.message) return pgErr.message
+    if (pgErr.code === "PGRST116") {
+      return "Update blocked — you may not have permission to modify these tickets."
+    }
+  }
+
+  return fallback
 }
 
 interface BulkActionsBarProps {
@@ -31,7 +44,8 @@ export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
   useEffect(() => {
     async function loadAgents() {
       try {
-        const { data } = await (supabase.from("user") as any)
+        const { data } = await supabase
+          .from("user")
           .select("id, name")
           .order("name", { ascending: true })
         setAgents(data || [])
@@ -51,7 +65,8 @@ export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
     setIsUpdating(true)
 
     try {
-      const { error } = await (supabase.from("ticket") as any)
+      const { error, count } = await supabase
+        .from("ticket")
         .update({
           status: confirmStatus,
           updated_at: new Date().toISOString(),
@@ -60,16 +75,21 @@ export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
 
       if (error) throw error
 
-      toast.success(
-        `Successfully updated ${selectedTicketIds.length} ticket${
-          selectedTicketIds.length > 1 ? "s" : ""
-        } to ${confirmStatus}.`
-      )
+      // Surface partial failure per error-handling rules
+      const total = selectedTicketIds.length
+      const updated = count ?? total
+      if (updated < total) {
+        toast.warning(`${updated} of ${total} tickets updated. Some may require different permissions.`)
+      } else {
+        toast.success(
+          `Successfully updated ${total} ticket${total > 1 ? "s" : ""} to ${confirmStatus}.`
+        )
+      }
       clearSelection()
       onActionCompleted()
-    } catch (err: any) {
-      console.error("[BulkActionsBar] Bulk update failed:", err)
-      toast.error(err?.message || "Failed to update tickets. Please try again.")
+    } catch (err: unknown) {
+      console.error("[BulkActionsBar] Bulk update failed:", JSON.stringify(err, null, 2), err)
+      toast.error(getErrorMessage(err, "Failed to update tickets. Please try again."))
     } finally {
       setIsUpdating(false)
       setConfirmStatus(null)
@@ -83,7 +103,8 @@ export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
     const selectedAgent = agents.find((a) => a.id === confirmAssign)
 
     try {
-      const { error } = await (supabase.from("ticket") as any)
+      const { error, count } = await supabase
+        .from("ticket")
         .update({
           assigned_to: confirmAssign === "unassigned" ? null : confirmAssign,
           updated_at: new Date().toISOString(),
@@ -92,16 +113,22 @@ export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
 
       if (error) throw error
 
-      toast.success(
-        `Assigned ${selectedTicketIds.length} ticket${
-          selectedTicketIds.length > 1 ? "s" : ""
-        } to ${confirmAssign === "unassigned" ? "Unassigned" : selectedAgent?.name || ""}.`
-      )
+      const total = selectedTicketIds.length
+      const updated = count ?? total
+      if (updated < total) {
+        toast.warning(`${updated} of ${total} tickets assigned. Some may require different permissions.`)
+      } else {
+        toast.success(
+          `Assigned ${total} ticket${total > 1 ? "s" : ""} to ${
+            confirmAssign === "unassigned" ? "Unassigned" : selectedAgent?.name || ""
+          }.`
+        )
+      }
       clearSelection()
       onActionCompleted()
-    } catch (err: any) {
-      console.error("[BulkActionsBar] Bulk assignment failed:", err)
-      toast.error(err?.message || "Failed to assign tickets. Please try again.")
+    } catch (err: unknown) {
+      console.error("[BulkActionsBar] Bulk assignment failed:", JSON.stringify(err, null, 2), err)
+      toast.error(getErrorMessage(err, "Failed to assign tickets. Please try again."))
     } finally {
       setIsUpdating(false)
       setConfirmAssign(null)

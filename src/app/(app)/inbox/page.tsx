@@ -2,6 +2,7 @@
 
 export const dynamic = "force-dynamic"
 
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useTickets } from "@/hooks/use-tickets"
 import { useInboxRealtime } from "@/lib/realtime/use-inbox-realtime"
@@ -17,6 +18,14 @@ import { Inbox as InboxIcon, RefreshCw } from "lucide-react"
 export default function InboxPage() {
   const router = useRouter()
   const { tickets, loading, error, refetch, totalCount, page, setPage } = useTickets()
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
 
   // Setup Realtime Inbox Updates (subscribes to insert/update/delete)
   useInboxRealtime(refetch)
@@ -30,7 +39,7 @@ export default function InboxPage() {
         searchInput.select()
       }
     },
-  })
+  }, isMobile)
 
   const handleOpenTicket = (id: string) => {
     router.push(`/tickets/${id}`)

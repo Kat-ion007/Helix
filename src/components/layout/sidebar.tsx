@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useUserStore } from "@/store/user-store"
-import { Inbox, LayoutDashboard, Settings } from "lucide-react"
+import { Inbox, LayoutDashboard, Settings, ArrowUpRight } from "lucide-react"
 
 interface SidebarProps {
   onCloseMobileDrawer?: () => void
@@ -18,6 +18,12 @@ export function Sidebar({ onCloseMobileDrawer }: SidebarProps) {
       label: "Ticket Inbox",
       href: "/inbox",
       icon: Inbox,
+      roles: ["agent", "lead", "admin"],
+    },
+    {
+      label: "Escalations",
+      href: "/escalations",
+      icon: ArrowUpRight,
       roles: ["agent", "lead", "admin"],
     },
     {

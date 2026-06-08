@@ -3,7 +3,7 @@
 
 export const dynamic = "force-dynamic"
 
-import { useState, use } from "react"
+import { useState, use, useEffect } from "react"
 import { useTicketDetail } from "@/hooks/use-ticket-detail"
 import { useSendMessage } from "@/hooks/use-send-message"
 import { useUpdateTicket } from "@/hooks/use-update-ticket"
@@ -15,6 +15,7 @@ import { ConversationThread } from "@/components/tickets/conversation-thread"
 import { ReplyBox } from "@/components/tickets/reply-box"
 import { CustomerContextPanel } from "@/components/tickets/customer-context-panel"
 import { EscalationModal } from "@/components/escalation/escalation-modal"
+import { ActivityLogList } from "@/components/tickets/activity-log-list"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorState } from "@/components/ui/error-state"
 
@@ -26,12 +27,21 @@ export default function TicketDetailPage({ params }: PageProps) {
   // Unwrap params using React.use()
   const { id: ticketId } = use(params)
 
-  const { ticket, messages, loading, error, refetch } = useTicketDetail(ticketId)
+  const { ticket, messages, activities, loading, error, refetch } = useTicketDetail(ticketId)
   const { sendMessage, retryMessage } = useSendMessage()
   const { updateTicket, updating } = useUpdateTicket()
   const { agents } = useAgents()
 
   const [isEscalateOpen, setIsEscalateOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<"conversation" | "activities">("conversation")
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
 
   // 1. Setup Live Realtime Subscription (Syncs updates/messages)
   useTicketDetailRealtime(ticketId, refetch)
@@ -48,7 +58,7 @@ export default function TicketDetailPage({ params }: PageProps) {
         updateTicket(ticketId, { status: "resolved" })
       }
     },
-  })
+  }, isMobile)
 
   const handleUpdateTicket = async (updates: any) => {
     await updateTicket(ticketId, updates)
@@ -96,12 +106,40 @@ export default function TicketDetailPage({ params }: PageProps) {
           isUpdating={updating}
         />
 
-        {/* Scrollable Conversation Thread */}
-        <ConversationThread messages={messages} onRetry={handleRetrySendMessage} />
+        {/* Tab selection */}
+        <div className="flex bg-surface-raised border-b border-border/80 px-6 select-none shrink-0">
+          <button
+            onClick={() => setActiveTab("conversation")}
+            className={`py-3 px-4 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+              activeTab === "conversation"
+                ? "border-accent text-accent"
+                : "border-transparent text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            Messages
+          </button>
+          <button
+            onClick={() => setActiveTab("activities")}
+            className={`py-3 px-4 text-xs font-semibold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+              activeTab === "activities"
+                ? "border-accent text-accent"
+                : "border-transparent text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            Activity Log ({activities.length})
+          </button>
+        </div>
 
-        {/* Input Reply Box pinned at bottom */}
-        {ticket.status !== "resolved" && (
-          <ReplyBox onSendMessage={handleSendMessage} disabled={updating} />
+        {/* Scrollable Content */}
+        {activeTab === "conversation" ? (
+          <>
+            <ConversationThread messages={messages} onRetry={handleRetrySendMessage} />
+            {ticket.status !== "resolved" && (
+              <ReplyBox onSendMessage={handleSendMessage} disabled={updating} />
+            )}
+          </>
+        ) : (
+          <ActivityLogList activities={activities} agents={agents} />
         )}
       </div>
 
