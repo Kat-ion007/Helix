@@ -4,13 +4,14 @@ import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/browser"
 import { useUserStore } from "@/store/user-store"
 import { Avatar } from "@/components/ui/avatar"
-import { LogOut, Menu } from "lucide-react"
+import { LogOut, Menu, Keyboard } from "lucide-react"
 
 interface TopNavProps {
   onOpenMobileDrawer: () => void
+  onOpenShortcuts: () => void
 }
 
-export function TopNav({ onOpenMobileDrawer }: TopNavProps) {
+export function TopNav({ onOpenMobileDrawer, onOpenShortcuts }: TopNavProps) {
   const router = useRouter()
   const profile = useUserStore((state) => state.profile)
 
@@ -43,6 +44,16 @@ export function TopNav({ onOpenMobileDrawer }: TopNavProps) {
 
       {/* Right side: user menu & logout */}
       <div className="flex items-center gap-4">
+        {/* Keyboard Shortcuts Trigger */}
+        <button
+          onClick={onOpenShortcuts}
+          className="text-text-secondary hover:text-text-primary p-2 rounded-lg hover:bg-surface-overlay/80 transition-colors focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider border border-transparent"
+          aria-label="Show keyboard shortcuts guide"
+        >
+          <Keyboard className="h-4.5 w-4.5 text-text-secondary" />
+          <span className="hidden md:inline">Shortcuts</span>
+        </button>
+
         {profile && (
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline-block text-xs font-semibold px-2 py-0.5 rounded bg-accent/10 border border-accent/20 text-accent uppercase tracking-wide">

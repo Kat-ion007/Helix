@@ -29,7 +29,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
         } = await supabase.auth.getUser()
 
         if (authError || !user) {
-          throw new Error("Unauthorized")
+          if (active) {
+            setProfile(null)
+            router.push("/login")
+          }
+          return
         }
 
         const { data: userProfile, error: dbError } = await (supabase.from("user") as any)
@@ -38,7 +42,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
           .single()
 
         if (dbError || !userProfile) {
-          throw new Error("Failed to load user profile")
+          if (active) {
+            setProfile(null)
+            router.push("/login")
+          }
+          return
         }
 
         if (active) {

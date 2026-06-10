@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { MacroSelector } from "./macro-selector"
 import { Button } from "@/components/ui/button"
 import { Lock, Send, Eye } from "lucide-react"
@@ -14,6 +14,22 @@ export function ReplyBox({ onSendMessage, disabled = false }: ReplyBoxProps) {
   const [content, setContent] = useState("")
   const [isInternal, setIsInternal] = useState(false)
   const [sending, setSending] = useState(false)
+
+  useEffect(() => {
+    const handleToggleInternalNote = () => {
+      if (disabled || sending) return
+      const textarea = document.querySelector('textarea[placeholder*="Type a"]') as HTMLTextAreaElement
+      if (textarea) {
+        textarea.focus()
+      }
+      setIsInternal((prev) => !prev)
+    }
+
+    window.addEventListener("toggle-internal-note" as any, handleToggleInternalNote)
+    return () => {
+      window.removeEventListener("toggle-internal-note" as any, handleToggleInternalNote)
+    }
+  }, [disabled, sending])
 
   const handleSend = async () => {
     if (!content.trim()) return

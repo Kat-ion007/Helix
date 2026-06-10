@@ -58,6 +58,11 @@ export function TicketFilters() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.currentTarget.blur()
+              }
+            }}
             placeholder="Search tickets by title, description..."
             className="block w-full bg-surface/50 border border-border/80 rounded-lg pl-9 pr-8 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
           />

@@ -88,3 +88,20 @@ html, body {
   outline: none;
   ring: 2px solid var(--color-primary-500);
 }
+
+/* Z-Index Utility Classes for Tailwind CSS v4 mapped from design-system.md */
+@utility z-dropdown {
+  z-index: 100;
+}
+@utility z-sticky {
+  z-index: 200;
+}
+@utility z-modal-backdrop {
+  z-index: 300;
+}
+@utility z-modal {
+  z-index: 400;
+}
+@utility z-toast {
+  z-index: 500;
+}

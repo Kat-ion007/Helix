@@ -3,6 +3,8 @@
 import { useState, ReactNode } from "react"
 import { Sidebar } from "./sidebar"
 import { TopNav } from "./top-nav"
+import { KeyboardShortcutsModal } from "./keyboard-shortcuts-modal"
+import { useKeyboardShortcuts } from "@/lib/shortcuts/use-keyboard-shortcuts"
 import { RealtimeStatusBanner } from "@/components/ui/realtime-status-banner"
 import { ToastContainer } from "@/components/ui/toast"
 import { X } from "lucide-react"
@@ -13,14 +15,23 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
 
   const openMobileDrawer = () => setIsMobileOpen(true)
   const closeMobileDrawer = () => setIsMobileOpen(false)
+
+  // Global '?' shortcut to toggle the shortcuts map guide modal
+  useKeyboardShortcuts({
+    "?": () => setShowShortcuts((prev) => !prev),
+  })
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-surface text-text-primary">
       {/* Toast notifications */}
       <ToastContainer />
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
       {/* Desktop Sidebar (hidden on mobile) */}
       <div className="hidden md:flex h-full">
@@ -54,7 +65,7 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        <TopNav onOpenMobileDrawer={openMobileDrawer} />
+        <TopNav onOpenMobileDrawer={openMobileDrawer} onOpenShortcuts={() => setShowShortcuts(true)} />
         
         {/* Realtime Status Banner immediately below nav */}
         <RealtimeStatusBanner />

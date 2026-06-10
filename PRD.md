@@ -405,19 +405,23 @@ Shortcut Map
 Action
 Shortcut
 Open ticket
-Enter
+Enter 
 Next ticket
 J
 Previous ticket
 K
 Close ticket
 C
+Resolve
+R
 Escalate
 E
 Search
 /
-
-
+Back
+Esc
+Note 
+N
 Accessibility Requirements
 Must meet WCAG 2.1 AA standards
 Must support keyboard-only navigation

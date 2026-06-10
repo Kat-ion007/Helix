@@ -4,6 +4,7 @@ import { useState } from "react"
 import { supabase } from "@/lib/supabase/browser"
 import { useTicketStore, TicketWithDetails } from "@/store/ticket-store"
 import { toast } from "@/store/toast-store"
+import { useUserStore } from "@/store/user-store"
 import { TicketStatus, TicketPriority } from "@/types"
 
 function getErrorMessage(err: unknown): string {
@@ -26,6 +27,7 @@ function getErrorMessage(err: unknown): string {
 
 export function useUpdateTicket() {
   const { getTicket, upsertTicket } = useTicketStore()
+  const { profile } = useUserStore()
   const [updating, setUpdating] = useState(false)
 
   const updateTicket = async (
@@ -40,10 +42,22 @@ export function useUpdateTicket() {
     const previous = getTicket(ticketId)
     if (!previous) return
 
+    // Auto-assign unassigned tickets to the current agent when they resolve or change status from open
+    const finalUpdates = { ...updates }
+    if (
+      profile?.role === "agent" &&
+      previous.assigned_to === null &&
+      finalUpdates.status &&
+      finalUpdates.status !== "open" &&
+      finalUpdates.assigned_to === undefined
+    ) {
+      finalUpdates.assigned_to = profile.id
+    }
+
     // 2. Apply optimistic update
     upsertTicket({
       ...previous,
-      ...updates,
+      ...finalUpdates,
       updated_at: new Date().toISOString(),
     } as TicketWithDetails)
 
@@ -52,7 +66,7 @@ export function useUpdateTicket() {
     try {
       const { data, error } = await supabase
         .from("ticket")
-        .update(updates)
+        .update(finalUpdates)
         .eq("id", ticketId)
         .select(
           `

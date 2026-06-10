@@ -4,6 +4,7 @@
 export const dynamic = "force-dynamic"
 
 import { useState, use, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useTicketDetail } from "@/hooks/use-ticket-detail"
 import { useSendMessage } from "@/hooks/use-send-message"
 import { useUpdateTicket } from "@/hooks/use-update-ticket"
@@ -24,6 +25,7 @@ interface PageProps {
 }
 
 export default function TicketDetailPage({ params }: PageProps) {
+  const router = useRouter()
   // Unwrap params using React.use()
   const { id: ticketId } = use(params)
 
@@ -56,6 +58,19 @@ export default function TicketDetailPage({ params }: PageProps) {
     c: () => {
       if (ticket && ticket.status !== "resolved") {
         updateTicket(ticketId, { status: "resolved" })
+      }
+    },
+    r: () => {
+      if (ticket && ticket.status !== "resolved") {
+        updateTicket(ticketId, { status: "resolved" })
+      }
+    },
+    escape: () => {
+      router.push("/inbox")
+    },
+    n: () => {
+      if (ticket && ticket.status !== "resolved") {
+        window.dispatchEvent(new CustomEvent("toggle-internal-note"))
       }
     },
   }, isMobile)
