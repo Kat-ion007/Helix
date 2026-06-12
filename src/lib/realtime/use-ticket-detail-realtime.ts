@@ -44,8 +44,12 @@ export function useTicketDetailRealtime(ticketId: string, onRefetchNeeded: () =>
         if (data) {
           upsertTicket(data as any)
         }
-      } catch (err) {
-        console.error("[useTicketDetailRealtime] Failed to fetch updated ticket details:", err)
+      } catch (err: any) {
+        if (err?.code === "PGRST116") {
+          console.warn("[useTicketDetailRealtime] Ticket is no longer accessible (RLS).")
+        } else {
+          console.error("[useTicketDetailRealtime] Failed to fetch updated ticket details:", err)
+        }
       }
     }
 

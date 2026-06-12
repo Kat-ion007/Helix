@@ -19,6 +19,7 @@ import { EscalationModal } from "@/components/escalation/escalation-modal"
 import { ActivityLogList } from "@/components/tickets/activity-log-list"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorState } from "@/components/ui/error-state"
+import { useUserStore } from "@/store/user-store"
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -33,6 +34,7 @@ export default function TicketDetailPage({ params }: PageProps) {
   const { sendMessage, retryMessage } = useSendMessage()
   const { updateTicket, updating } = useUpdateTicket()
   const { agents } = useAgents()
+  const profile = useUserStore((state) => state.profile)
 
   const [isEscalateOpen, setIsEscalateOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<"conversation" | "activities">("conversation")
@@ -170,7 +172,13 @@ export default function TicketDetailPage({ params }: PageProps) {
           ticket={ticket}
           agents={agents}
           onClose={() => setIsEscalateOpen(false)}
-          onSuccess={refetch}
+          onSuccess={() => {
+            if (profile?.role === "agent") {
+              router.push("/inbox")
+            } else {
+              refetch()
+            }
+          }}
         />
       )}
     </div>

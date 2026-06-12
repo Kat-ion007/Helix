@@ -3,9 +3,12 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useState, useCallback, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/browser"
 import { useTicketStore, type TicketWithDetails } from "@/store/ticket-store"
 import { useMessageStore, type MessageWithStatus } from "@/store/message-store"
+import { useUserStore } from "@/store/user-store"
+import { toast } from "@/store/toast-store"
 
 interface ActivityWithActor {
   id: string
@@ -33,6 +36,8 @@ interface UseTicketDetailResult {
 export function useTicketDetail(ticketId: string): UseTicketDetailResult {
   const { upsertTicket, getTicket } = useTicketStore()
   const { messages: storeMessages, setMessages } = useMessageStore()
+  const router = useRouter()
+  const profile = useUserStore((state) => state.profile)
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -135,16 +140,34 @@ export function useTicketDetail(ticketId: string): UseTicketDetailResult {
         setActivities((activitiesRes.data || []) as any)
       }
     } catch (err: any) {
-      console.error("[useTicketDetail] Fetch error:", err)
+      if (err?.code === "PGRST116") {
+        console.warn("[useTicketDetail] Ticket is no longer accessible (RLS).")
+      } else {
+        console.error("[useTicketDetail] Fetch error:", err)
+      }
       if (currentFetchId === fetchCounter.current) {
-        setError(err?.message || "Failed to load ticket details.")
+        let msg = "Failed to load ticket details."
+        if (err && typeof err === "object") {
+          if (err.code === "PGRST116") {
+            const existingTicket = getTicket(ticketId)
+            if (existingTicket && profile?.role === "agent") {
+              toast.warning("You no longer have access to this ticket.")
+              router.push("/inbox")
+              return
+            }
+            msg = "Ticket not found or you do not have permission to view it."
+          } else if (err.message) {
+            msg = err.message
+          }
+        }
+        setError(msg)
       }
     } finally {
       if (currentFetchId === fetchCounter.current) {
         setLoading(false)
       }
     }
-  }, [ticketId, upsertTicket, setMessages])
+  }, [ticketId, upsertTicket, setMessages, getTicket, profile, router])
 
   useEffect(() => {
     fetchDetails()

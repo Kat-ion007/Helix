@@ -1,21 +1,27 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+export const dynamic = "force-dynamic"
+
+import { useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/supabase/browser"
 import { Lock, Mail, Loader2, ArrowRight } from "lucide-react"
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const errorParam = searchParams.get("error")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [localError, setLocalError] = useState<string | null>(null)
+
+  const error = localError || (errorParam === "inactive" ? "Your account has been deactivated. Please contact an administrator." : null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setError(null)
+    setLocalError(null)
 
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -31,7 +37,7 @@ export default function LoginPage() {
       router.refresh()
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred. Please try again."
-      setError(errorMessage)
+      setLocalError(errorMessage)
       setIsLoading(false)
     }
   }
@@ -155,5 +161,20 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center p-8 min-h-[300px]">
+          <Loader2 className="h-8 w-8 animate-spin text-accent mb-2" />
+          <span className="text-sm text-text-secondary">Loading Helix...</span>
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   )
 }

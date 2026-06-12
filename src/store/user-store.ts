@@ -1,11 +1,12 @@
 import { create } from "zustand"
-import { UserRole } from "@/types"
+import { UserRole, UserStatus } from "@/types"
 
 export interface UserProfile {
   id: string
   name: string
   email: string
   role: UserRole
+  status: UserStatus
 }
 
 interface UserStore {

@@ -1,5 +1,7 @@
 export type UserRole = "agent" | "lead" | "admin";
 
+export type UserStatus = "active" | "inactive";
+
 export type TicketStatus = "open" | "pending" | "resolved" | "escalated";
 
 export type TicketPriority = "low" | "medium" | "high" | "urgent";
@@ -13,6 +15,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  status: UserStatus;
   created_at: string;
 }
 

@@ -101,7 +101,15 @@ export function useTickets(): UseTicketsResult {
     } catch (err: any) {
       console.error("[useTickets] Error fetching tickets:", err)
       if (currentFetchId === fetchCounter.current) {
-        setError(err?.message || "Failed to load tickets. Please try again.")
+        let msg = "Failed to load tickets. Please try again."
+        if (err && typeof err === "object") {
+          if (err.code === "PGRST116" || err.code === "42501") {
+            msg = "You do not have permission to view these tickets."
+          } else if (err.message) {
+            msg = err.message
+          }
+        }
+        setError(msg)
       }
     } finally {
       if (currentFetchId === fetchCounter.current) {

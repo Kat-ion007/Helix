@@ -37,7 +37,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         }
 
         const { data: userProfile, error: dbError } = await (supabase.from("user") as any)
-          .select("id, name, email, role, created_at")
+          .select("id, name, email, role, status, created_at")
           .eq("id", user.id)
           .single()
 
@@ -55,6 +55,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             name: userProfile.name,
             email: userProfile.email,
             role: userProfile.role,
+            status: userProfile.status,
           })
           setLoading(false)
         }

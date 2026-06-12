@@ -51,13 +51,30 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 3. Role-based route guards
+  // 3. Role-based route guards and status checks
   if (user) {
-    // Retrieve role from public.user table
+    // Retrieve role and status from public.user table
     const { data: profile } = await (supabase.from("user") as any)
-      .select("role")
+      .select("role, status")
       .eq("id", user.id)
       .single();
+
+    // 3a. Check if account is inactive
+    if (profile && profile.status === "inactive") {
+      if (!isAuthPage) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/login";
+        url.searchParams.set("error", "inactive");
+        
+        const response = NextResponse.redirect(url);
+        // Clear session cookies
+        response.cookies.delete("sb-access-token");
+        response.cookies.delete("sb-refresh-token");
+        return response;
+      }
+      // Bypasses redirect to /inbox if they are already on /login
+      return supabaseResponse;
+    }
 
     // Guard /dashboard: leads or admins only
     if (request.nextUrl.pathname.startsWith("/dashboard")) {

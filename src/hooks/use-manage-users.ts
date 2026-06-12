@@ -1,9 +1,10 @@
 "use client"
+/* eslint-disable react-hooks/set-state-in-effect, @typescript-eslint/no-explicit-any */
 
 import { useEffect, useState, useCallback } from "react"
 import { supabase } from "@/lib/supabase/browser"
 import { toast } from "@/store/toast-store"
-import { User, UserRole } from "@/types"
+import { User, UserRole, UserStatus } from "@/types"
 
 export function useManageUsers() {
   const [users, setUsers] = useState<User[]>([])
@@ -17,7 +18,7 @@ export function useManageUsers() {
     try {
       const { data, error: fetchError } = await supabase
         .from("user")
-        .select("id, name, email, role, created_at")
+        .select("id, name, email, role, status, created_at")
         .order("name", { ascending: true })
 
       if (fetchError) throw fetchError
@@ -37,35 +38,68 @@ export function useManageUsers() {
     fetchUsers()
   }, [fetchUsers])
 
-  const updateUserRole = async (
-    userId: string,
-    newRole: UserRole
-  ): Promise<void> => {
+  const createUser = async (userData: {
+    name: string
+    email: string
+    password: string
+    role: UserRole
+  }): Promise<void> => {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to create user")
+
+      toast.success("User created successfully.")
+      await fetchUsers()
+    } catch (err: any) {
+      console.error("[useManageUsers] Create user failed:", err)
+      toast.error(err.message || "Failed to create user.")
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const updateUserDetails = async (userData: {
+    id: string
+    name?: string
+    email?: string
+    role?: UserRole
+    status?: UserStatus
+  }): Promise<void> => {
     // 1. Snapshot for rollback
-    const previous = users.find((u) => u.id === userId)
+    const previous = users.find((u) => u.id === userData.id)
     if (!previous) return
 
     // 2. Optimistic update
     setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+      prev.map((u) => (u.id === userData.id ? { ...u, ...userData } : u))
     )
 
     try {
-      const { error: updateError } = await supabase
-        .from("user")
-        .update({ role: newRole })
-        .eq("id", userId)
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to update user")
 
-      if (updateError) throw updateError
-
-      toast.success(`Role updated to ${newRole}.`)
-    } catch (err: unknown) {
+      toast.success("User updated successfully.")
+      await fetchUsers()
+    } catch (err: any) {
       // Rollback
       setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? previous : u))
+        prev.map((u) => (u.id === userData.id ? previous : u))
       )
-      console.error("[useManageUsers] Role update failed:", JSON.stringify(err, null, 2), err)
-      toast.error("Failed to update role. Please try again.")
+      console.error("[useManageUsers] Update user failed:", err)
+      toast.error(err.message || "Failed to update user.")
+      throw err
     }
   }
 
@@ -102,7 +136,8 @@ export function useManageUsers() {
     loading,
     error,
     refetch: fetchUsers,
-    updateUserRole,
+    createUser,
+    updateUserDetails,
     anonymiseUser,
   }
 }

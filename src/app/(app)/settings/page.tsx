@@ -12,7 +12,7 @@ import { Settings, RefreshCw } from "lucide-react"
 export default function SettingsPage() {
   const router = useRouter()
   const profile = useUserStore((state) => state.profile)
-  const { users, loading, error, refetch, updateUserRole, anonymiseUser } =
+  const { users, loading, error, refetch, createUser, updateUserDetails, anonymiseUser } =
     useManageUsers()
 
   // Admin-only guard — redirect non-admins
@@ -59,7 +59,7 @@ export default function SettingsPage() {
           User Management
         </h3>
         <p className="text-xs text-text-secondary">
-          Change roles or remove users. Removing a user anonymises their profile
+          Create, edit, enable/disable, or remove users. Removing a user anonymises their profile
           to preserve ticket history.
         </p>
       </div>
@@ -70,7 +70,8 @@ export default function SettingsPage() {
         loading={loading}
         error={error}
         onRetry={refetch}
-        onUpdateRole={updateUserRole}
+        onCreateUser={createUser}
+        onUpdateUser={updateUserDetails}
         onAnonymise={anonymiseUser}
       />
     </div>
