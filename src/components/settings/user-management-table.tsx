@@ -16,7 +16,7 @@ interface UserManagementTableProps {
   loading: boolean
   error: string | null
   onRetry: () => void
-  onCreateUser: (userData: { name: string; email: string; password: string; role: UserRole }) => Promise<void>
+  onCreateUser: (userData: { name: string; email: string; role: UserRole }) => Promise<void>
   onUpdateUser: (userData: { id: string; name?: string; email?: string; role?: UserRole; status?: UserStatus }) => Promise<void>
   onAnonymise: (userId: string) => Promise<void>
 }
@@ -98,7 +98,6 @@ export function UserManagementTable({
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [createName, setCreateName] = useState("")
   const [createEmail, setCreateEmail] = useState("")
-  const [createPassword, setCreatePassword] = useState("")
   const [createRole, setCreateRole] = useState<UserRole>("agent")
   const [createError, setCreateError] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
@@ -138,23 +137,17 @@ export function UserManagementTable({
       setCreateError("A valid email address is required.")
       return
     }
-    if (!createPassword || createPassword.length < 6) {
-      setCreateError("Password must be at least 6 characters.")
-      return
-    }
 
     setIsCreating(true)
     try {
       await onCreateUser({
         name: createName.trim(),
         email: createEmail.trim(),
-        password: createPassword,
         role: createRole,
       })
       // Reset form & close
       setCreateName("")
       setCreateEmail("")
-      setCreatePassword("")
       setCreateRole("agent")
       setIsCreateOpen(false)
     } catch (err: any) {
@@ -478,22 +471,6 @@ export function UserManagementTable({
               </div>
 
               <div>
-                <label htmlFor="create-password" className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
-                  Password
-                </label>
-                <input
-                  id="create-password"
-                  type="password"
-                  placeholder="Min. 6 characters"
-                  value={createPassword}
-                  onChange={(e) => setCreatePassword(e.target.value)}
-                  disabled={isCreating}
-                  className="w-full bg-surface-raised border border-border/80 rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent transition-all"
-                  required
-                />
-              </div>
-
-              <div>
                 <label htmlFor="create-role" className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
                   System Role
                 </label>
@@ -526,7 +503,7 @@ export function UserManagementTable({
               type="submit"
               isLoading={isCreating}
             >
-              Create User
+              Send Invitation
             </Button>
           </Modal.Footer>
         </form>

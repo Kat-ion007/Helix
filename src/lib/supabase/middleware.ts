@@ -35,10 +35,12 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isLoginPage = request.nextUrl.pathname.startsWith("/login");
-  const isAuthPage = request.nextUrl.pathname === "/" || isLoginPage;
+  const isForgotPasswordPage = request.nextUrl.pathname === "/forgot-password";
+  const isAuthPage = request.nextUrl.pathname === "/" || isLoginPage || isForgotPasswordPage;
+  const isSetPasswordPage = request.nextUrl.pathname === "/set-password";
 
   // 1. Unauthenticated users: redirect to /login
-  if (!user && !isAuthPage) {
+  if (!user && !isAuthPage && !isSetPasswordPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

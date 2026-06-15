@@ -25,9 +25,9 @@ export function ReplyBox({ onSendMessage, disabled = false }: ReplyBoxProps) {
       setIsInternal((prev) => !prev)
     }
 
-    window.addEventListener("toggle-internal-note" as any, handleToggleInternalNote)
+    window.addEventListener("toggle-internal-note" as keyof WindowEventMap, handleToggleInternalNote as EventListener)
     return () => {
-      window.removeEventListener("toggle-internal-note" as any, handleToggleInternalNote)
+      window.removeEventListener("toggle-internal-note" as keyof WindowEventMap, handleToggleInternalNote as EventListener)
     }
   }, [disabled, sending])
 

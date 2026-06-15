@@ -41,7 +41,6 @@ export function useManageUsers() {
   const createUser = async (userData: {
     name: string
     email: string
-    password: string
     role: UserRole
   }): Promise<void> => {
     setLoading(true)
@@ -52,13 +51,13 @@ export function useManageUsers() {
         body: JSON.stringify(userData),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to create user")
+      if (!res.ok) throw new Error(data.error || "Failed to send invitation")
 
-      toast.success("User created successfully.")
+      toast.success("Invitation sent successfully.")
       await fetchUsers()
     } catch (err: any) {
-      console.error("[useManageUsers] Create user failed:", err)
-      toast.error(err.message || "Failed to create user.")
+      console.error("[useManageUsers] Send invitation failed:", err)
+      toast.error(err.message || "Failed to send invitation.")
       throw err
     } finally {
       setLoading(false)

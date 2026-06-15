@@ -8,19 +8,20 @@ import { useUserStore } from "@/store/user-store"
 import { TicketStatus, TicketPriority } from "@/types"
 
 function getErrorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message
-
   // Supabase PostgREST error shape: { message, details, hint, code }
   if (typeof err === "object" && err !== null) {
     const pgErr = err as { message?: string; code?: string }
-    if (pgErr.message) return pgErr.message
-
+    
     // PGRST116: .single() returned 0 rows — typically an RLS denial
     // 42501: PostgreSQL insufficient_privilege — RLS WITH CHECK rejection
     if (pgErr.code === "PGRST116" || pgErr.code === "42501") {
-      return "Update blocked — you may not have permission to modify this ticket."
+      return "Update blocked — you do not have permission to modify this ticket."
     }
+
+    if (pgErr.message) return pgErr.message
   }
+
+  if (err instanceof Error) return err.message
 
   return "Failed to update ticket. Rollback applied."
 }
@@ -97,7 +98,14 @@ export function useUpdateTicket() {
       toast.success("Ticket updated successfully.")
     } catch (err: unknown) {
       // 4. Rollback on failure
-      console.error("[useUpdateTicket] Error updating ticket:", JSON.stringify(err, null, 2), err)
+      const isPermissionErr = typeof err === "object" && err !== null && 
+        ("code" in err && (err.code === "PGRST116" || err.code === "42501"))
+
+      if (isPermissionErr) {
+        console.warn("[useUpdateTicket] Permission blocked ticket update:", err)
+      } else {
+        console.error("[useUpdateTicket] Error updating ticket:", JSON.stringify(err, null, 2), err)
+      }
       upsertTicket(previous)
       toast.error(getErrorMessage(err))
     } finally {

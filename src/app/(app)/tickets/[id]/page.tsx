@@ -50,20 +50,30 @@ export default function TicketDetailPage({ params }: PageProps) {
   // 1. Setup Live Realtime Subscription (Syncs updates/messages)
   useTicketDetailRealtime(ticketId, refetch)
 
+  const canUpdate =
+    profile?.role !== "agent" ||
+    ticket?.assigned_to === profile?.id ||
+    (ticket?.assigned_to === null && ticket?.status === "open")
+
+  const canReply =
+    profile?.role !== "agent" ||
+    ticket?.assigned_to === profile?.id ||
+    ticket?.assigned_to === null
+
   // 2. Setup Keyboard Shortcuts
   useKeyboardShortcuts({
     e: () => {
-      if (ticket && ticket.status !== "resolved") {
+      if (ticket && ticket.status !== "resolved" && canUpdate) {
         setIsEscalateOpen(true)
       }
     },
     c: () => {
-      if (ticket && ticket.status !== "resolved") {
+      if (ticket && ticket.status !== "resolved" && canUpdate) {
         updateTicket(ticketId, { status: "resolved" })
       }
     },
     r: () => {
-      if (ticket && ticket.status !== "resolved") {
+      if (ticket && ticket.status !== "resolved" && canUpdate) {
         updateTicket(ticketId, { status: "resolved" })
       }
     },
@@ -71,7 +81,7 @@ export default function TicketDetailPage({ params }: PageProps) {
       router.push("/inbox")
     },
     n: () => {
-      if (ticket && ticket.status !== "resolved") {
+      if (ticket && ticket.status !== "resolved" && canReply) {
         window.dispatchEvent(new CustomEvent("toggle-internal-note"))
       }
     },
@@ -152,7 +162,13 @@ export default function TicketDetailPage({ params }: PageProps) {
           <>
             <ConversationThread messages={messages} onRetry={handleRetrySendMessage} />
             {ticket.status !== "resolved" && (
-              <ReplyBox onSendMessage={handleSendMessage} disabled={updating} />
+              canReply ? (
+                <ReplyBox onSendMessage={handleSendMessage} disabled={updating} />
+              ) : (
+                <div className="p-4 bg-surface border-t border-border/80 text-center text-xs text-text-secondary select-none font-medium">
+                  Only the assignee can reply or add notes to this ticket.
+                </div>
+              )
             )}
           </>
         ) : (

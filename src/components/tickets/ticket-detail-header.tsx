@@ -10,6 +10,7 @@ import { formatSLADue, isSLABreached, isSLAWarning } from "@/utils/sla"
 import type { TicketWithDetails } from "@/store/ticket-store"
 import { ArrowLeft, UserCheck, CheckCircle2, ArrowUpRight, Clock } from "lucide-react"
 import Link from "next/link"
+import { useUserStore } from "@/store/user-store"
 
 interface TicketDetailHeaderProps {
   ticket: TicketWithDetails
@@ -33,6 +34,12 @@ export function TicketDetailHeader({
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [showCloseModal, setShowCloseModal] = useState(false)
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(ticket.assigned_to)
+
+  const { profile } = useUserStore()
+  const canUpdate =
+    profile?.role !== "agent" ||
+    ticket.assigned_to === profile.id ||
+    (ticket.assigned_to === null && ticket.status === "open")
 
   const slaBreached = isSLABreached(ticket.sla_due)
   const slaWarning = isSLAWarning(ticket.sla_due)
@@ -113,10 +120,11 @@ export function TicketDetailHeader({
         <Button
           variant="secondary"
           onClick={() => {
+            if (!canUpdate) return
             setSelectedAgentId(ticket.assigned_to)
             setShowAssignModal(true)
           }}
-          disabled={isUpdating}
+          disabled={isUpdating || !canUpdate}
           className="gap-1.5 cursor-pointer text-xs uppercase tracking-wider font-semibold"
         >
           <UserCheck size={14} />
@@ -129,8 +137,10 @@ export function TicketDetailHeader({
         {ticket.status !== "resolved" && (
           <Button
             variant="secondary"
-            onClick={onEscalateClick}
-            disabled={isUpdating}
+            onClick={() => {
+              if (canUpdate) onEscalateClick()
+            }}
+            disabled={isUpdating || !canUpdate}
             className="gap-1.5 cursor-pointer text-xs uppercase tracking-wider font-semibold"
           >
             <ArrowUpRight size={14} />
@@ -142,8 +152,10 @@ export function TicketDetailHeader({
         {ticket.status !== "resolved" && (
           <Button
             variant="primary"
-            onClick={() => setShowCloseModal(true)}
-            disabled={isUpdating}
+            onClick={() => {
+              if (canUpdate) setShowCloseModal(true)
+            }}
+            disabled={isUpdating || !canUpdate}
             className="gap-1.5 cursor-pointer text-xs uppercase tracking-wider font-semibold"
           >
             <CheckCircle2 size={14} />

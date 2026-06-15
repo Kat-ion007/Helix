@@ -11,6 +11,36 @@ interface Agent {
   role: string
 }
 
+const SELECT_CLASS = "bg-surface/50 border border-border rounded-lg pl-3 pr-8 py-1.5 text-xs font-medium text-text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20fill=%27none%27%20viewBox=%270%200%2020%2020%27%3E%3Cpath%20stroke=%27%238B90A8%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%20stroke-width=%271.5%27%20d=%27m6%208%204%204%204-4%27/%3E%3C/svg%3E')] bg-[position:right_0.5rem_center] bg-[size:1.25rem_1.25rem] bg-no-repeat transition-all"
+
+const getStatusWidth = (val: string): string => {
+  switch (val) {
+    case "open": return "76px"
+    case "pending": return "92px"
+    case "resolved": return "98px"
+    case "escalated": return "104px"
+    default: return "122px"
+  }
+}
+
+const getPriorityWidth = (val: string): string => {
+  switch (val) {
+    case "low": return "70px"
+    case "medium": return "92px"
+    case "high": return "74px"
+    case "urgent": return "88px"
+    default: return "124px"
+  }
+}
+
+const getAssigneeWidth = (val: string, agents: Agent[]): string => {
+  if (val === "all") return "124px"
+  if (val === "unassigned") return "112px"
+  const agent = agents.find(a => a.id === val)
+  const text = agent ? `${agent.name} (${agent.role})` : "All Assignees"
+  return `${text.length * 7.2 + 44}px`
+}
+
 export function TicketFilters() {
   const {
     status,
@@ -101,7 +131,8 @@ export function TicketFilters() {
             aria-label="Filter by Status"
             value={status}
             onChange={(e) => setStatus(e.target.value as FilterStatus)}
-            className="bg-surface/50 border border-border rounded-lg px-3 py-1.5 text-xs font-medium text-text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent cursor-pointer"
+            className={SELECT_CLASS}
+            style={{ width: getStatusWidth(status) }}
           >
             <option value="all">All Statuses</option>
             <option value="open">Open</option>
@@ -118,7 +149,8 @@ export function TicketFilters() {
             aria-label="Filter by Priority"
             value={priority}
             onChange={(e) => setPriority(e.target.value as FilterPriority)}
-            className="bg-surface/50 border border-border rounded-lg px-3 py-1.5 text-xs font-medium text-text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent cursor-pointer"
+            className={SELECT_CLASS}
+            style={{ width: getPriorityWidth(priority) }}
           >
             <option value="all">All Priorities</option>
             <option value="low">Low</option>
@@ -135,7 +167,8 @@ export function TicketFilters() {
             aria-label="Filter by Assigned Agent"
             value={assignedTo}
             onChange={(e) => setAssignedTo(e.target.value as FilterAssignment)}
-            className="bg-surface/50 border border-border rounded-lg px-3 py-1.5 text-xs font-medium text-text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent cursor-pointer"
+            className={SELECT_CLASS}
+            style={{ width: getAssigneeWidth(assignedTo, agents) }}
           >
             <option value="all">All Assignees</option>
             <option value="unassigned">Unassigned</option>

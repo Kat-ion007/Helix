@@ -40,23 +40,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden — active admin role required" }, { status: 403 })
     }
 
-    const { name, email, password, role } = await request.json()
+    const { name, email, role } = await request.json()
 
-    if (!name || !email || !password || !role) {
+    if (!name || !email || !role) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 })
     }
 
     const adminClient = createAdminClient()
+    const origin = request.headers.get("origin")
 
-    // 1. Create user in Supabase Auth
-    const { data: authUser, error: createError } = await adminClient.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { name }
+    // 1. Invite user in Supabase Auth
+    const { data: authUser, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
+      data: { name },
+      redirectTo: origin ? `${origin}/set-password` : undefined
     })
 
-    if (createError) throw createError
+    if (inviteError) throw inviteError
 
     // 2. Insert profile into public.user table
     const { data: newProfile, error: dbError } = await (adminClient
@@ -80,7 +79,7 @@ export async function POST(request: Request) {
     return NextResponse.json(newProfile)
   } catch (err: any) {
     console.error("[POST /api/admin/users] Error:", err)
-    return NextResponse.json({ error: err.message || "Failed to create user" }, { status: 500 })
+    return NextResponse.json({ error: err.message || "Failed to send invitation" }, { status: 500 })
   }
 }
 
