@@ -167,6 +167,7 @@ function LoginForm() {
             </>
           )}
         </button>
+        <p className="text-center text-xs text-text-secondary mt-4">Need access? Contact your administrator.</p>
       </form>
 
       {/* Dev Environment Helpers */}
