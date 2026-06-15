@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { Macro } from "@/types"
 
 export function useMacros() {
@@ -13,10 +14,13 @@ export function useMacros() {
   useEffect(() => {
     async function loadMacros() {
       try {
-        const { data, error: fetchError } = await supabase
-          .from("macro")
-          .select("id, name, content, created_at")
-          .order("name", { ascending: true })
+        const { data, error: fetchError } = await withTimeout(
+          Promise.resolve(supabase
+            .from("macro")
+            .select("id, name, content, created_at")
+            .order("name", { ascending: true })),
+          15000
+        )
 
         if (fetchError) throw fetchError
         setMacros(data || [])

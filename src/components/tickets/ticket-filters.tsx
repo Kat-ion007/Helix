@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { useInboxFilterStore, FilterStatus, FilterPriority, FilterAssignment } from "@/store/inbox-filter-store"
 import { Search, X, SlidersHorizontal } from "lucide-react"
 
@@ -59,10 +60,13 @@ export function TicketFilters() {
   useEffect(() => {
     async function loadAgents() {
       try {
-        const { data, error } = await supabase
-          .from("user")
-          .select("id, name, role")
-          .order("name", { ascending: true })
+        const { data, error } = await withTimeout(
+          Promise.resolve(supabase
+            .from("user")
+            .select("id, name, role")
+            .order("name", { ascending: true })),
+          15000
+        )
 
         if (error) throw error
         setAgents(data || [])

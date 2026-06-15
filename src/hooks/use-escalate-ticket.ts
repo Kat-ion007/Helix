@@ -3,6 +3,7 @@
 
 import { useState } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { useUserStore } from "@/store/user-store"
 import { toast } from "@/store/toast-store"
 
@@ -19,12 +20,15 @@ export function useEscalateTicket() {
     setIsSubmitting(true)
 
     try {
-      const { error } = await supabase.rpc("escalate_ticket", {
-        p_ticket_id: ticketId,
-        p_from_user: profile.id,
-        p_to_user: toUserId,
-        p_reason: reason || undefined,
-      } as any)
+      const { error } = await withTimeout(
+        Promise.resolve(supabase.rpc("escalate_ticket", {
+          p_ticket_id: ticketId,
+          p_from_user: profile.id,
+          p_to_user: toUserId,
+          p_reason: reason || undefined,
+        } as any)),
+        15000
+      )
 
       if (error) throw error
 

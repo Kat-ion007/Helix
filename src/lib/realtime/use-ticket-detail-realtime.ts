@@ -3,6 +3,7 @@
 
 import { useEffect, useRef } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { useTicketStore } from "@/store/ticket-store"
 import { useMessageStore } from "@/store/message-store"
 import { useRealtimeStore } from "@/store/realtime-store"
@@ -20,7 +21,7 @@ export function useTicketDetailRealtime(ticketId: string, onRefetchNeeded: () =>
     // 1. Fetch updated ticket details when a change occurs to capture joins
     const fetchAndUpsertTicket = async () => {
       try {
-        const { data, error } = await (supabase.from("ticket") as any)
+        const promise = (supabase.from("ticket") as any)
           .select(
             `
               id,
@@ -39,6 +40,7 @@ export function useTicketDetailRealtime(ticketId: string, onRefetchNeeded: () =>
           )
           .eq("id", ticketId)
           .single()
+        const { data, error } = await withTimeout(Promise.resolve(promise), 15000)
 
         if (error) throw error
         if (data) {
@@ -58,10 +60,11 @@ export function useTicketDetailRealtime(ticketId: string, onRefetchNeeded: () =>
       try {
         let senderName = undefined
         if (msgPayload.sender_type === "agent" && msgPayload.sender_id) {
-          const { data } = await (supabase.from("user") as any)
+          const promise = (supabase.from("user") as any)
             .select("name")
             .eq("id", msgPayload.sender_id)
             .single()
+          const { data } = await withTimeout(Promise.resolve(promise), 15000)
           senderName = (data as any)?.name
         }
 

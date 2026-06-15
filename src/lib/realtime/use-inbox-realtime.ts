@@ -3,6 +3,7 @@
 
 import { useEffect, useRef } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { useTicketStore } from "@/store/ticket-store"
 import { useRealtimeStore } from "@/store/realtime-store"
 import { toast } from "@/store/toast-store"
@@ -33,26 +34,29 @@ export function useInboxRealtime(onRefetchNeeded: () => void) {
     // Helper to fetch details of a specific ticket to merge relations (customer/user)
     const fetchAndUpsertDetails = async (ticketId: string) => {
       try {
-        const { data, error } = await supabase
-          .from("ticket")
-          .select(
-            `
-              id,
-              title,
-              description,
-              status,
-              priority,
-              customer_id,
-              assigned_to,
-              created_at,
-              updated_at,
-              sla_due,
-              customer:customer_id (id, name, email),
-              assigned_user:assigned_to (id, name, email, role)
-            `
-          )
-          .eq("id", ticketId)
-          .single()
+        const { data, error } = await withTimeout(
+          Promise.resolve(supabase
+            .from("ticket")
+            .select(
+              `
+                id,
+                title,
+                description,
+                status,
+                priority,
+                customer_id,
+                assigned_to,
+                created_at,
+                updated_at,
+                sla_due,
+                customer:customer_id (id, name, email),
+                assigned_user:assigned_to (id, name, email, role)
+              `
+            )
+            .eq("id", ticketId)
+            .single()),
+          15000
+        )
 
         if (error) throw error
 

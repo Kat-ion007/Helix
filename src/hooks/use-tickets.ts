@@ -4,6 +4,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { useInboxFilterStore } from "@/store/inbox-filter-store"
 import { useTicketStore, type TicketWithDetails } from "@/store/ticket-store"
 
@@ -86,7 +87,7 @@ export function useTickets(): UseTicketsResult {
       const to = from + ITEMS_PER_PAGE - 1
       query = query.range(from, to)
 
-      const { data, error: fetchError, count } = await query
+      const { data, error: fetchError, count } = await withTimeout(Promise.resolve(query), 15000)
 
       if (fetchError) {
         throw fetchError

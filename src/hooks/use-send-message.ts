@@ -3,6 +3,7 @@
 
 import { useState } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { useMessageStore } from "@/store/message-store"
 import { useUserStore } from "@/store/user-store"
 import { toast } from "@/store/toast-store"
@@ -55,7 +56,7 @@ export function useSendMessage() {
     retries: number
   ) => {
     try {
-      const { data, error } = await (supabase.from("message") as any)
+      const promise = (supabase.from("message") as any)
         .insert({
           ticket_id: ticketId,
           sender_type: "agent",
@@ -65,6 +66,7 @@ export function useSendMessage() {
         })
         .select()
         .single()
+      const { data, error } = await withTimeout(Promise.resolve(promise), 15000)
 
       if (error) throw error
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { Customer } from "@/types"
 import { Mail, Shield, AlertCircle, History, User } from "lucide-react"
 
@@ -16,17 +17,23 @@ export function CustomerContextPanel({ customer }: CustomerContextPanelProps) {
     async function loadCustomerTicketCounts() {
       if (!customer?.id) return
       try {
-        const { count: openCount } = await supabase
-          .from("ticket")
-          .select("id", { count: "exact", head: true })
-          .eq("customer_id", customer.id)
-          .in("status", ["open", "pending", "escalated"])
+        const { count: openCount } = await withTimeout(
+          Promise.resolve(supabase
+            .from("ticket")
+            .select("id", { count: "exact", head: true })
+            .eq("customer_id", customer.id)
+            .in("status", ["open", "pending", "escalated"])),
+          15000
+        )
 
-        const { count: resolvedCount } = await supabase
-          .from("ticket")
-          .select("id", { count: "exact", head: true })
-          .eq("customer_id", customer.id)
-          .eq("status", "resolved")
+        const { count: resolvedCount } = await withTimeout(
+          Promise.resolve(supabase
+            .from("ticket")
+            .select("id", { count: "exact", head: true })
+            .eq("customer_id", customer.id)
+            .eq("status", "resolved")),
+          15000
+        )
 
         setTicketCounts({
           open: openCount || 0,

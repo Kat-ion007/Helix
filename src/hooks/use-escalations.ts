@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { EscalationStatus } from "@/types"
 
 export interface EscalationRecord {
@@ -40,10 +41,11 @@ export function useEscalations() {
     setError(null)
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from("escalation")
-        .select(
-          `
+      const { data, error: fetchError } = await withTimeout(
+        Promise.resolve(supabase
+          .from("escalation")
+          .select(
+            `
           id,
           ticket_id,
           from_user,
@@ -55,8 +57,10 @@ export function useEscalations() {
           from:from_user (id, name, role),
           to:to_user (id, name, role)
         `
-        )
-        .order("created_at", { ascending: false })
+          )
+          .order("created_at", { ascending: false })),
+        15000
+      )
 
       if (fetchError) throw fetchError
 

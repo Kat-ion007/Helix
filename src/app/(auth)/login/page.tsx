@@ -55,7 +55,7 @@ function LoginForm() {
 
   const fillCredentials = (roleEmail: string) => {
     setEmail(roleEmail)
-    setPassword("kation25")
+    setPassword(process.env.NEXT_PUBLIC_DEFAULT_PASSWORD || "")
   }
 
   return (

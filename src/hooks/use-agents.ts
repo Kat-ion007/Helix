@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { User } from "@/types"
 
 export function useAgents() {
@@ -13,10 +14,13 @@ export function useAgents() {
   useEffect(() => {
     async function loadAgents() {
       try {
-        const { data, error: fetchError } = await supabase
-          .from("user")
-          .select("id, name, email, role, created_at")
-          .order("name", { ascending: true })
+        const { data, error: fetchError } = await withTimeout(
+          Promise.resolve(supabase
+            .from("user")
+            .select("id, name, email, role, created_at")
+            .order("name", { ascending: true })),
+          15000
+        )
 
         if (fetchError) throw fetchError
         setAgents((data || []) as User[])

@@ -4,6 +4,7 @@
 import { useEffect, useState, ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { useUserStore } from "@/store/user-store"
 import { AppShell } from "@/components/layout/app-shell"
 import { Loader2 } from "lucide-react"
@@ -36,10 +37,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
           return
         }
 
-        const { data: userProfile, error: dbError } = await (supabase.from("user") as any)
-          .select("id, name, email, role, status, created_at")
-          .eq("id", user.id)
-          .single()
+        const { data: userProfile, error: dbError } = await withTimeout(
+          (supabase.from("user") as any)
+            .select("id, name, email, role, status, created_at")
+            .eq("id", user.id)
+            .single() as Promise<any>,
+          15000
+        )
 
         if (dbError || !userProfile) {
           if (active) {

@@ -4,6 +4,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { useDashboardStore } from "@/store/dashboard-store"
 
 interface UseDashboardMetricsResult {
@@ -43,10 +44,10 @@ export function useDashboardMetrics(): UseDashboardMetricsResult {
         .order("resolved_date", { ascending: true })
 
       const [statusCountsRes, slaBreachRes, agentWorkloadRes, resolutionTrendRes] = await Promise.all([
-        statusCountsPromise,
-        slaBreachPromise,
-        agentWorkloadPromise,
-        resolutionTrendPromise,
+        withTimeout(Promise.resolve(statusCountsPromise), 15000),
+        withTimeout(Promise.resolve(slaBreachPromise), 15000),
+        withTimeout(Promise.resolve(agentWorkloadPromise), 15000),
+        withTimeout(Promise.resolve(resolutionTrendPromise), 15000),
       ])
 
       if (statusCountsRes.error) throw statusCountsRes.error

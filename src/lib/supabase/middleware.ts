@@ -29,15 +29,25 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Authenticate user against Supabase Auth service (GetUser is more secure than GetSession)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const isLoginPage = request.nextUrl.pathname.startsWith("/login");
   const isForgotPasswordPage = request.nextUrl.pathname === "/forgot-password";
   const isAuthPage = request.nextUrl.pathname === "/" || isLoginPage || isForgotPasswordPage;
   const isSetPasswordPage = request.nextUrl.pathname === "/set-password";
+
+  // Authenticate user against Supabase Auth service (GetUser is more secure than GetSession)
+  let user;
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch (err) {
+    console.error("[Middleware] Auth getUser() failed:", err);
+    if (!isAuthPage && !isSetPasswordPage) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+    return supabaseResponse;
+  }
 
   // 1. Unauthenticated users: redirect to /login
   if (!user && !isAuthPage && !isSetPasswordPage) {
@@ -55,11 +65,17 @@ export async function updateSession(request: NextRequest) {
 
   // 3. Role-based route guards and status checks
   if (user) {
-    // Retrieve role and status from public.user table
-    const { data: profile } = await (supabase.from("user") as any)
-      .select("role, status")
-      .eq("id", user.id)
-      .single();
+    let profile;
+    try {
+      const result = await (supabase.from("user") as any)
+        .select("role, status")
+        .eq("id", user.id)
+        .single();
+      profile = result.data;
+    } catch (err) {
+      console.error("[Middleware] Failed to fetch user profile:", err);
+      return supabaseResponse;
+    }
 
     // 3a. Check if account is inactive
     if (profile && profile.status === "inactive") {

@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { toast } from "@/store/toast-store"
 import { User, UserRole, UserStatus } from "@/types"
 
@@ -15,11 +16,14 @@ export function useManageUsers() {
     setLoading(true)
     setError(null)
 
-    try {
-      const { data, error: fetchError } = await supabase
-        .from("user")
-        .select("id, name, email, role, status, created_at")
-        .order("name", { ascending: true })
+      try {
+        const { data, error: fetchError } = await withTimeout(
+          Promise.resolve(supabase
+            .from("user")
+            .select("id, name, email, role, status, created_at")
+            .order("name", { ascending: true })),
+          15000
+        )
 
       if (fetchError) throw fetchError
 
@@ -111,13 +115,16 @@ export function useManageUsers() {
     setUsers((prev) => prev.filter((u) => u.id !== userId))
 
     try {
-      const { error: updateError } = await supabase
-        .from("user")
-        .update({
-          name: "[deleted]",
-          email: `deleted-${userId.substring(0, 8)}@helix.local`,
-        })
-        .eq("id", userId)
+      const { error: updateError } = await withTimeout(
+        Promise.resolve(supabase
+          .from("user")
+          .update({
+            name: "[deleted]",
+            email: `deleted-${userId.substring(0, 8)}@helix.local`,
+          })
+          .eq("id", userId)),
+        15000
+      )
 
       if (updateError) throw updateError
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { useTicketStore, TicketWithDetails } from "@/store/ticket-store"
 import { toast } from "@/store/toast-store"
 import { useUserStore } from "@/store/user-store"
@@ -65,7 +66,7 @@ export function useUpdateTicket() {
     setUpdating(true)
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await withTimeout(Promise.resolve(supabase
         .from("ticket")
         .update(finalUpdates)
         .eq("id", ticketId)
@@ -85,7 +86,7 @@ export function useUpdateTicket() {
             assigned_user:assigned_to (id, name, email, role)
           `
         )
-        .single()
+        .single()), 15000)
 
       if (error) throw error
 

@@ -5,6 +5,7 @@
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { useTicketStore, type TicketWithDetails } from "@/store/ticket-store"
 import { useMessageStore, type MessageWithStatus } from "@/store/message-store"
 import { useUserStore } from "@/store/user-store"
@@ -110,9 +111,9 @@ export function useTicketDetail(ticketId: string): UseTicketDetailResult {
         .order("created_at", { ascending: false })
 
       const [ticketRes, messagesRes, activitiesRes] = await Promise.all([
-        ticketPromise,
-        messagesPromise,
-        activitiesPromise,
+        withTimeout(Promise.resolve(ticketPromise), 15000),
+        withTimeout(Promise.resolve(messagesPromise), 15000),
+        withTimeout(Promise.resolve(activitiesPromise), 15000),
       ])
 
       if (ticketRes.error) throw ticketRes.error

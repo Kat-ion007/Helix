@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { useInboxFilterStore } from "@/store/inbox-filter-store"
 import { toast } from "@/store/toast-store"
 import { Modal } from "@/components/ui/modal"
@@ -44,10 +45,13 @@ export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
   useEffect(() => {
     async function loadAgents() {
       try {
-        const { data } = await supabase
-          .from("user")
-          .select("id, name")
-          .order("name", { ascending: true })
+        const { data } = await withTimeout(
+          Promise.resolve(supabase
+            .from("user")
+            .select("id, name")
+            .order("name", { ascending: true })),
+          15000
+        )
         setAgents(data || [])
       } catch (err) {
         console.error("[BulkActionsBar] Failed to load agents:", err)
@@ -65,13 +69,16 @@ export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
     setIsUpdating(true)
 
     try {
-      const { error, count } = await supabase
-        .from("ticket")
-        .update({
-          status: confirmStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .in("id", selectedTicketIds)
+      const { error, count } = await withTimeout(
+        Promise.resolve(supabase
+          .from("ticket")
+          .update({
+            status: confirmStatus,
+            updated_at: new Date().toISOString(),
+          })
+          .in("id", selectedTicketIds)),
+        15000
+      )
 
       if (error) throw error
 
@@ -90,6 +97,7 @@ export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
     } catch (err: unknown) {
       console.error("[BulkActionsBar] Bulk update failed:", JSON.stringify(err, null, 2), err)
       toast.error(getErrorMessage(err, "Failed to update tickets. Please try again."))
+      onActionCompleted()
     } finally {
       setIsUpdating(false)
       setConfirmStatus(null)
@@ -103,13 +111,16 @@ export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
     const selectedAgent = agents.find((a) => a.id === confirmAssign)
 
     try {
-      const { error, count } = await supabase
-        .from("ticket")
-        .update({
-          assigned_to: confirmAssign === "unassigned" ? null : confirmAssign,
-          updated_at: new Date().toISOString(),
-        })
-        .in("id", selectedTicketIds)
+      const { error, count } = await withTimeout(
+        Promise.resolve(supabase
+          .from("ticket")
+          .update({
+            assigned_to: confirmAssign === "unassigned" ? null : confirmAssign,
+            updated_at: new Date().toISOString(),
+          })
+          .in("id", selectedTicketIds)),
+        15000
+      )
 
       if (error) throw error
 
@@ -129,6 +140,7 @@ export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
     } catch (err: unknown) {
       console.error("[BulkActionsBar] Bulk assignment failed:", JSON.stringify(err, null, 2), err)
       toast.error(getErrorMessage(err, "Failed to assign tickets. Please try again."))
+      onActionCompleted()
     } finally {
       setIsUpdating(false)
       setConfirmAssign(null)

@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase/browser"
+import { withTimeout } from "@/lib/supabase/query"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
@@ -47,10 +48,13 @@ export function TicketDetailHeader({
   useEffect(() => {
     async function loadAgents() {
       try {
-        const { data } = await supabase
-          .from("user")
-          .select("id, name")
-          .order("name", { ascending: true })
+        const { data } = await withTimeout(
+          Promise.resolve(supabase
+            .from("user")
+            .select("id, name")
+            .order("name", { ascending: true })),
+          15000
+        )
         setAgents(data || [])
       } catch (err) {
         console.error("[TicketDetailHeader] Failed to load agents:", err)
