@@ -1,6 +1,6 @@
 "use client"
 
-import { Clock, UserCheck, RefreshCw, AlertCircle } from "lucide-react"
+import { Clock, UserCheck, RefreshCw } from "lucide-react"
 import { User } from "@/types"
 
 interface ActivityWithActor {
@@ -8,8 +8,8 @@ interface ActivityWithActor {
   ticket_id: string
   actor_id: string | null
   action: string
-  previous_value: any
-  new_value: any
+  previous_value: unknown
+  new_value: unknown
   created_at: string
   actor?: {
     id: string
@@ -46,7 +46,7 @@ export function ActivityLogList({ activities, agents }: ActivityLogListProps) {
         <Clock size={32} className="text-text-muted mb-2" />
         <p className="text-sm font-semibold">No activity logs found</p>
         <p className="text-xs text-text-muted mt-1">
-          Modifications to this ticket's status or assignment will appear here.
+          Modifications to this ticket&apos;s status or assignment will appear here.
         </p>
       </div>
     )
@@ -64,15 +64,19 @@ export function ActivityLogList({ activities, agents }: ActivityLogListProps) {
           let description = ""
 
           if (act.action === "status_change") {
-            const oldStatus = act.previous_value?.status || "unknown"
-            const newStatus = act.new_value?.status || "unknown"
+            const prev = act.previous_value as Record<string, unknown> | null
+            const next = act.new_value as Record<string, unknown> | null
+            const oldStatus = (prev?.status as string) || "unknown"
+            const newStatus = (next?.status as string) || "unknown"
 
             icon = <RefreshCw size={12} className="text-accent" />
             bgColor = "bg-accent/10 border-accent/20"
             description = `${actorName} updated status from ${oldStatus} to ${newStatus}`
           } else if (act.action === "assignment_change") {
-            const oldAssigneeId = act.previous_value?.assigned_to
-            const newAssigneeId = act.new_value?.assigned_to
+            const prev = act.previous_value as Record<string, unknown> | null
+            const next = act.new_value as Record<string, unknown> | null
+            const oldAssigneeId = (prev?.assigned_to as string | null | undefined) ?? null
+            const newAssigneeId = (next?.assigned_to as string | null | undefined) ?? null
 
             const oldName = getAgentName(oldAssigneeId)
             const newName = getAgentName(newAssigneeId)
@@ -116,3 +120,4 @@ export function ActivityLogList({ activities, agents }: ActivityLogListProps) {
     </div>
   )
 }
+

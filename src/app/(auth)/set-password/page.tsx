@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/browser"
-import { Lock, Loader2, AlertTriangle, CheckCircle, Eye, EyeOff } from "lucide-react"
+import { Lock, Loader2, AlertTriangle, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js"
 
@@ -29,31 +29,66 @@ export default function SetPasswordPage() {
       hash.includes("type=recovery") ||
       searchParams.has("code")
 
-    // Check initial session using safe dot notation to ensure full inference
-    supabase.auth.getSession().then((result: { data: { session: Session | null } }) => {
-      const session = result.data?.session
-      if (session) {
-        if (!hasToken) {
-          // If already logged in but not from a redirect token, redirect to home/inbox
-          router.push("/inbox")
-        } else {
-          setHasSession(true)
-        }
-      } else {
-        // Wait a brief moment to process the hash fragment if the user was just redirected from email
-        const timer = setTimeout(() => {
-          supabase.auth.getSession().then((retryResult: { data: { session: Session | null } }) => {
-            const retrySession = retryResult.data?.session
-            if (retrySession && !hasToken) {
-              router.push("/inbox")
-            } else {
-              setHasSession(!!retrySession)
-            }
-          })
-        }, 1200)
-        return () => clearTimeout(timer)
+    const hasError =
+      hash.includes("error=") ||
+      hash.includes("error_description") ||
+      searchParams.has("error") ||
+      searchParams.has("error_description")
+
+    let timer: ReturnType<typeof setTimeout> | null = null
+
+    async function handleAuth() {
+      if (hasError) {
+        console.warn("[SetPassword] Landing page detected auth error:", hash || query)
+        setHasSession(false)
+        return
       }
-    })
+
+      if (searchParams.has("code")) {
+        const code = searchParams.get("code")
+        if (code) {
+          try {
+            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+            if (exchangeError) throw exchangeError
+          } catch (err) {
+            console.error("[SetPassword] Failed to exchange code for session:", err)
+            setHasSession(false)
+            return
+          }
+        }
+      }
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          if (!hasToken) {
+            router.push("/inbox")
+          } else {
+            setHasSession(true)
+          }
+        } else {
+          // Wait a brief moment to process the hash fragment if the user was just redirected from email
+          timer = setTimeout(async () => {
+            try {
+              const { data: { session: retrySession } } = await supabase.auth.getSession()
+              if (retrySession && !hasToken) {
+                router.push("/inbox")
+              } else {
+                setHasSession(!!retrySession)
+              }
+            } catch (err) {
+              console.error("[SetPassword] Retry session fetch failed:", err)
+              setHasSession(false)
+            }
+          }, 1200)
+        }
+      } catch (err) {
+        console.error("[SetPassword] Initial session fetch failed:", err)
+        setHasSession(false)
+      }
+    }
+
+    handleAuth()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       if (session) {
@@ -66,6 +101,7 @@ export default function SetPasswordPage() {
     })
 
     return () => {
+      if (timer) clearTimeout(timer)
       subscription.unsubscribe()
     }
   }, [router])

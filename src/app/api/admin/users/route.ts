@@ -65,7 +65,7 @@ export async function POST(request: Request) {
         name,
         email,
         role,
-        status: "active"
+        status: "invited"
       })
       .select()
       .single()

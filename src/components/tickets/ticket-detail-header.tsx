@@ -23,6 +23,7 @@ interface TicketDetailHeaderProps {
 interface Agent {
   id: string
   name: string
+  role: string
 }
 
 export function TicketDetailHeader({
@@ -51,7 +52,7 @@ export function TicketDetailHeader({
         const { data } = await withTimeout(
           Promise.resolve(supabase
             .from("user")
-            .select("id, name")
+            .select("id, name, role")
             .order("name", { ascending: true })),
           15000
         )
@@ -188,11 +189,18 @@ export function TicketDetailHeader({
             className="w-full bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
           >
             <option value="unassigned">Unassigned</option>
-            {agents.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
+            {agents
+              .filter((a) => {
+                if (profile?.role === "agent") {
+                  return a.role === "agent"
+                }
+                return true
+              })
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
           </select>
         </Modal.Body>
         <Modal.Footer>

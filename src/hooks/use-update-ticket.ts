@@ -66,11 +66,12 @@ export function useUpdateTicket() {
     setUpdating(true)
 
     try {
-      const { data, error } = await withTimeout(Promise.resolve(supabase
-        .from("ticket")
-        .update(finalUpdates)
-        .eq("id", ticketId)
-        .select(
+      const { data, error } = await withTimeout(Promise.resolve(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from("ticket") as any)
+          .update(finalUpdates)
+          .eq("id", ticketId)
+          .select(
           `
             id,
             title,

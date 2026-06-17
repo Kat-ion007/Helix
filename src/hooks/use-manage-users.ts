@@ -116,13 +116,14 @@ export function useManageUsers() {
 
     try {
       const { error: updateError } = await withTimeout(
-        Promise.resolve(supabase
-          .from("user")
-          .update({
-            name: "[deleted]",
-            email: `deleted-${userId.substring(0, 8)}@helix.local`,
-          })
-          .eq("id", userId)),
+        Promise.resolve(
+          (supabase.from("user") as any)
+            .update({
+              name: "[deleted]",
+              email: `deleted-${userId.substring(0, 8)}@helix.local`,
+            })
+            .eq("id", userId)
+        ),
         15000
       )
 

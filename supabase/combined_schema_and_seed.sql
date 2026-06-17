@@ -7,6 +7,7 @@ create extension if not exists "pgcrypto";
 
 -- ── 1. Create Enums and Types ──────────────────────────────────────────────────
 create type user_role as enum ('agent', 'lead', 'admin');
+create type user_status as enum ('active', 'inactive', 'invited');
 create type ticket_status   as enum ('open', 'pending', 'resolved', 'escalated');
 create type ticket_priority as enum ('low', 'medium', 'high', 'urgent');
 create type message_sender as enum ('agent', 'customer');
@@ -19,6 +20,7 @@ create table "user" (
   name        text not null,
   email       text not null unique,
   role        user_role not null default 'agent',
+  status      user_status not null default 'active',
   created_at  timestamptz not null default now()
 );
 
@@ -107,19 +109,44 @@ set search_path = public
 as $$
 declare
   v_role text;
+  v_status text;
 begin
-  select role::text into v_role from "user" where id = auth.uid();
+  select role::text, status::text into v_role, v_status from "user" where id = auth.uid();
+  if v_status = 'inactive' then
+    return null;
+  end if;
   return v_role;
 end;
 $$;
+
+-- Trigger to automatically activate invited users on confirmation/login
+create or replace function public.handle_user_auth_confirmed()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.email_confirmed_at is not null or new.last_sign_in_at is not null then
+    update public."user"
+    set status = 'active'
+    where id = new.id and status = 'invited';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_confirmed on auth.users;
+create trigger on_auth_user_confirmed
+  after update on auth.users
+  for each row execute function public.handle_user_auth_confirmed();
 
 alter table "user" enable row level security;
 
 create policy "user_select"
   on "user" for select
   using (
-    auth.uid() = id
-    or get_my_role() in ('lead', 'admin')
+    auth.uid() is not null
   );
 
 create policy "user_all_admin"
@@ -463,58 +490,74 @@ on conflict (id) do nothing;
 insert into public.ticket (id, title, description, status, priority, customer_id, assigned_to, created_at, updated_at, sla_due)
 values
   -- Unassigned Open Tickets
-  ('f1010101-1101-1101-1101-110101010101', 'Unable to login to portal', 'Getting 500 error when clicking sign-in.', 'open', 'urgent', 'c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1', null, now() - interval '1 hour', now() - interval '1 hour', now() + interval '15 minutes'),
-  ('f1020202-1102-1102-1102-110202020202', 'API webhook failures', 'Webhooks failing with timeout to our endpoints.', 'open', 'high', 'c2c2c2c2-c2c2-c2c2-c2c2-c2c2c2c2c2c2', null, now() - interval '2 hours', now() - interval '2 hours', now() + interval '2 hours'),
-  ('f1030303-1103-1103-1103-110303030303', 'Request to export customer data', 'Need full CSV dump of user records for audit.', 'open', 'medium', 'c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3', null, now() - interval '3 hours', now() - interval '3 hours', now() + interval '8 hours'),
-  ('f1040404-1104-1104-1104-110404040404', 'Broken link in docs footer', 'Typo in link to API reference.', 'open', 'low', 'c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3', null, now() - interval '5 hours', now() - interval '5 hours', now() + interval '48 hours'),
+  ('f1010101-1111-1111-1111-111111111111', 'Unable to configure Google OAuth login integration', 'We are getting a redirect URI mismatch error when trying to authenticate users using Google OAuth. Standard email login works fine.', 'open', 'high', 'c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1', null, now() - interval '2 hours', now() - interval '2 hours', now() + interval '2 hours'),
+  ('f1020202-2222-2222-2222-222222222222', 'API endpoint returning 504 Gateway Timeout on large batch queries', 'When we try to fetch more than 10,000 records using /v1/records, we get a 504 gateway timeout from Cloudflare. Pagination works, but batch fails.', 'open', 'urgent', 'c2c2c2c2-c2c2-c2c2-c2c2-c2c2c2c2c2c2', null, now() - interval '1 hour', now() - interval '1 hour', now() + interval '15 minutes'),
+  ('f1030303-3333-3333-3333-333333333333', 'Typos and grammatical errors in custom domain docs', 'There are some minor typos under the "Configuring Cloudflare Proxy" section of your setup documentation.', 'open', 'low', 'c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3', null, now() - interval '6 hours', now() - interval '6 hours', now() + interval '48 hours'),
   
   -- Assigned Pending Tickets (Sarah Agent)
-  ('f2010101-2201-2201-2201-220101010101', 'Billing billing discrepancy', 'Charged twice for subscription this month.', 'pending', 'high', 'c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', now() - interval '4 hours', now() - interval '1 hour', now() + interval '1 hour'),
-  ('f2020202-2202-2202-2202-220202020202', 'Custom domain verification failed', 'CNAME is set up but dashboard still says pending.', 'pending', 'medium', 'c5c5c5c5-c5c5-c5c5-c5c5-c5c5c5c5c5c5', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', now() - interval '1 day', now() - interval '2 hours', now() + interval '4 hours'),
-  ('f2030303-2203-2203-2203-220303030303', 'SMTP integration failure', 'SMTP test email is not sending, error code 535.', 'pending', 'high', 'c4c4c4c4-c4c4-c4c4-c4c4-c4c4c4c4c4c4', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', now() - interval '2 hours', now() - interval '30 minutes', now() - interval '10 minutes'), -- SLA Breached!
-  
-  -- Escalated Tickets
-  ('f3010101-3301-3301-3301-330101010101', 'Database migration timeout', 'Customer DB upgrade timed out at 99%.', 'escalated', 'urgent', 'c4c4c4c4-c4c4-c4c4-c4c4-c4c4c4c4c4c4', 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2', now() - interval '3 hours', now() - interval '10 minutes', now() - interval '2 hours'), -- SLA Breached!
-  ('f3020202-3302-3302-3302-330202020202', 'Enterprise SLA inquiry', 'Clarification on availability guarantees.', 'escalated', 'medium', 'c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1', 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2', now() - interval '2 days', now() - interval '1 day', now() + interval '12 hours'),
+  ('f2010101-1111-1111-1111-111111111111', 'Stripe invoice double charge investigation', 'I was charged twice on my card ending in 4242 on June 15th for the Pro subscription. I see two identical invoices INV-5060 and INV-5061 in Stripe. Please refund one.', 'pending', 'high', 'c5c5c5c5-c5c5-c5c5-c5c5-c5c5c5c5c5c5', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', now() - interval '4 hours', now() - interval '1 hour', now() + interval '1 hour'),
+  ('f2020202-2222-2222-2222-222222222222', 'Requesting help with CSV user export format', 'Is it possible to customize the columns exported in the user CSV data? Currently it exports everything, but we only need name, email and tier.', 'pending', 'medium', 'c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', now() - interval '8 hours', now() - interval '2 hours', now() + interval '8 hours'),
+  ('f2030303-3333-3333-3333-333333333333', 'SSL handshake failed on secondary custom domain', 'We added api.globex.com as a secondary domain, but we are getting SSL_ERROR_BAD_CERT_DOMAIN when trying to curl it. Main domain is fine.', 'pending', 'high', 'c2c2c2c2-c2c2-c2c2-c2c2-c2c2c2c2c2c2', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', now() - interval '5 hours', now() - interval '2 hours', now() - interval '10 minutes'), -- SLA breached!
+  ('f3010101-1111-1111-1111-111111111111', 'SMTP configuration testing returns 535 Authentication Failed', 'We are trying to integrate our custom SES SMTP credentials, but when testing connection from the dashboard, it fails with code 535. Verified passwords are correct.', 'pending', 'high', 'c4c4c4c4-c4c4-c4c4-c4c4-c4c4c4c4c4c4', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', now() - interval '3 hours', now() - interval '1 hour', now() + interval '3 hours'),
+  ('f3020202-2222-2222-2222-222222222222', 'GDPR Delete Request - Account Deactivation', 'Please delete all personal data associated with our testing account test-user@umbrella.com. Let us know when completed.', 'pending', 'medium', 'c4c4c4c4-c4c4-c4c4-c4c4-c4c4c4c4c4c4', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', now() - interval '10 hours', now() - interval '3 hours', now() + interval '12 hours'),
+
+  -- Escalated Tickets (Marcus Lead)
+  ('f4010101-1111-1111-1111-111111111111', 'Enterprise Data Processing Agreement (DPA) amendments', 'Our legal team has requested standard custom amendments to Section 4 of the DPA regarding data retention. Attaching the redline document.', 'escalated', 'medium', 'c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1', 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2', now() - interval '12 hours', now() - interval '4 hours', now() + interval '6 hours'),
+  ('f4020202-2222-2222-2222-222222222222', 'Database replication lag exceeding 10 seconds', 'Our read replicas are lagging behind the write primary database by over 10 seconds, causing stale data reads for our users in Europe. Completely blocking.', 'escalated', 'urgent', 'c5c5c5c5-c5c5-c5c5-c5c5-c5c5c5c5c5c5', 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2', now() - interval '4 hours', now() - interval '1 hour', now() - interval '30 minutes'), -- SLA breached!
+
+  -- Assigned Tickets (Alice Admin)
+  ('f5010101-1111-1111-1111-111111111111', 'Security Alert: Multiple failed login attempts from unrecognized IP', 'We received an automated alert showing 50+ failed login attempts within 2 minutes for user account ops@hooli.com. Need security audit logs.', 'open', 'urgent', 'c5c5c5c5-c5c5-c5c5-c5c5-c5c5c5c5c5c5', 'adadadad-adad-adad-adad-adadadadadad', now() - interval '1 hour', now() - interval '1 hour', now() + interval '1 hour'),
+  ('f5020202-2222-2222-2222-222222222222', 'Requesting custom SSO domain configuration', 'We want to enforce Okta SAML SSO for all users on our @acme.com domain. Can you enable the enterprise SSO flag for our organization?', 'pending', 'high', 'c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1', 'adadadad-adad-adad-adad-adadadadadad', now() - interval '6 hours', now() - interval '2 hours', now() + interval '4 hours'),
 
   -- Resolved Tickets
-  ('f4010101-4401-4401-4401-440101010101', 'Reset password link not received', 'Requested reset but got no email.', 'resolved', 'medium', 'c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', now() - interval '2 days', now() - interval '1 day', now() - interval '1 day'),
-  ('f4020202-4402-4402-4402-440202020202', 'Upgrade plan inquiry', 'How to add 5 more seats to our plan.', 'resolved', 'low', 'c2c2c2c2-c2c2-c2c2-c2c2-c2c2c2c2c2c2', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', now() - interval '3 days', now() - interval '2 days', now() - interval '2 days')
+  ('f6010101-1111-1111-1111-111111111111', 'How to upgrade plan to add new members', 'Where in the dashboard can I add 3 more seats to our Pro subscription? The button is disabled.', 'resolved', 'low', 'c2c2c2c2-c2c2-c2c2-c2c2-c2c2c2c2c2c2', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', now() - interval '2 days', now() - interval '1 day', now() - interval '1 day'),
+  ('f6020202-2222-2222-2222-222222222222', 'Wrong email entered during sign up', 'I typoed our primary billing email as billling@initech.com (three l''s). Please change it to billing@initech.com.', 'resolved', 'medium', 'c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3', 'adadadad-adad-adad-adad-adadadadadad', now() - interval '3 days', now() - interval '2 days', now() - interval '2 days')
 on conflict (id) do nothing;
 
 -- ── 13. Seed Message Threads ──────────────────────────────────────────────────
 insert into public.message (id, ticket_id, sender_type, sender_id, content, is_internal, created_at)
 values
-  -- Thread for t101 (Login issue)
-  ('e1010101-1101-1101-1101-110101010101', 'f1010101-1101-1101-1101-110101010101', 'customer', null, 'Hi, I cannot sign into the client portal. It keeps throwing a white screen and a 500 error. Please help.', false, now() - interval '1 hour'),
+  -- Thread for Google OAuth issue (f1010101)
+  ('e1010101-1111-1111-1111-111111111111', 'f1010101-1111-1111-1111-111111111111', 'customer', null, 'Hi support team, I am trying to enable Google OAuth for our team. However, after going through the Google consent screen, we get redirected back to a page saying "Redirect URI mismatch" with error code 400. Standard email/password logins work, but we need OAuth. Please help.', false, now() - interval '2 hours'),
+  
+  -- Thread for Stripe invoice issue (f2010101)
+  ('e2010101-1111-1111-1111-111111111111', 'f2010101-1111-1111-1111-111111111111', 'customer', null, 'Hello, our credit card ending in 4242 was charged twice for the Enterprise subscription this month. We got two receipts, invoice INV-5060 and INV-5061, both for $49.00. We only have one workspace. Could you please check and refund the duplicate charge?', false, now() - interval '4 hours'),
+  ('e2010202-2222-2222-2222-222222222222', 'f2010101-1111-1111-1111-111111111111', 'agent', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'Hi Gavin, thank you for reaching out. I am taking a look at our Stripe dashboard now to check on these transactions. I will verify if both charges have been finalized or if one is a temporary auth hold.', false, now() - interval '3 hours'),
+  ('e2010303-3333-3333-3333-333333333333', 'f2010101-1111-1111-1111-111111111111', 'agent', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'Note to self: Stripe dashboard does show two pending charges. Looks like a webhook retry duplicate. Need to verify database did not create two accounts.', true, now() - interval '2 hours'),
+  ('e2010404-4444-4444-4444-444444444444', 'f2010101-1111-1111-1111-111111111111', 'customer', null, 'Thank you Sarah, standing by.', false, now() - interval '1 hour'),
 
-  -- Thread for t201 (Billing discrepancy)
-  ('e2010101-2201-2201-2201-220101010101', 'f2010101-2201-2201-2201-220101010101', 'customer', null, 'Hello, I was charged twice for the Enterprise subscription this month. Invoice numbers are INV-4050 and INV-4051. I need one refunded.', false, now() - interval '4 hours'),
-  ('e2010202-2201-2201-2201-220102020202', 'f2010101-2201-2201-2201-220101010101', 'agent', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'Hi John, I am reviewing our stripe logs now to see why the double charge happened. I will get back to you in a few minutes.', false, now() - interval '3 hours'),
-  ('e2010303-2201-2201-2201-220103030303', 'f2010101-2201-2201-2201-220101010101', 'agent', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'Note to self: Stripe dashboard does show two pending charges. Looks like a webhook retry duplicate. Need to verify database did not create two accounts.', true, now() - interval '2 hours'),
-  ('e2010404-2201-2201-2201-220104040404', 'f2010101-2201-2201-2201-220101010101', 'customer', null, 'Thank you Sarah, standing by.', false, now() - interval '1 hour'),
+  -- Thread for SMTP issue (f3010101)
+  ('e3010101-1111-1111-1111-111111111111', 'f3010101-1111-1111-1111-111111111111', 'customer', null, 'Hello, we are attempting to set up custom SMTP integration for our emails. We are using AWS SES credentials. However, when we hit "Test Connection", we get "535 Authentication Credentials Invalid". We double checked the credentials and they work from a separate script. Is there anything special needed on your end?', false, now() - interval '3 hours'),
+  ('e3010202-2222-2222-2222-222222222222', 'f3010101-1111-1111-1111-111111111111', 'agent', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'Hi Albert, I am looking into our SMTP logs for Umbrella Corp. I see the authentication attempt was rejected by the mail server. Let me double check if there are port/TLS mismatch requirements for SES.', false, now() - interval '1 hour'),
 
-  -- Thread for t301 (Escalated Database upgrade issue)
-  ('e3010101-3301-3301-3301-330101010101', 'f3010101-3301-3301-3301-330101010101', 'customer', null, 'Our database migration is stuck at 99%. It has been running for 45 minutes without progress. The app is completely offline.', false, now() - interval '3 hours'),
-  ('e3010202-3301-3301-3301-330102020202', 'f3010101-3301-3301-3301-330101010101', 'agent', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'This looks like a database deadlock during the indexing phase. Escalating to engineering lead.', true, now() - interval '2 hours'),
+  -- Thread for DPA amendments (f4010101)
+  ('e4010101-1111-1111-1111-111111111111', 'f4010101-1111-1111-1111-111111111111', 'customer', null, 'Hi, we are standardizing our compliance documents and need a signed copy of the Data Processing Agreement (DPA) with our custom retention schedule added as an annex. Let us know who to send the document to.', false, now() - interval '12 hours'),
+  ('e4010202-2222-2222-2222-222222222222', 'f4010101-1111-1111-1111-111111111111', 'agent', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'Hi John, custom DPAs require legal approval from our executive team. I am escalating this ticket to Marcus, our Lead, who coordinates document execution.', false, now() - interval '4 hours'),
+  ('e4010303-3333-3333-3333-333333333333', 'f4010101-1111-1111-1111-111111111111', 'agent', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'Note to self: Escalating to Marcus for legal review. The customer is Acme Corp (John Doe), enterprise tier.', true, now() - interval '4 hours'),
 
-  -- Thread for t401 (Resolved reset link issue)
-  ('e4010101-4401-4401-4401-440101010101', 'f4010101-4401-4401-4401-440101010101', 'customer', null, 'I did not receive the reset link. I checked spam.', false, now() - interval '2 days'),
-  ('e4010202-4401-4401-4401-440102020202', 'f4010101-4401-4401-4401-440101010101', 'agent', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'Hi Peter, I checked our mail logs and it was blocked by Initechs inbound filter. I have manually whitelisted our domain. Please try triggering it now.', false, now() - interval '1 day'),
-  ('e4010303-4401-4401-4401-440103030303', 'f4010101-4401-4401-4401-440101010101', 'customer', null, 'Got it! Password updated, thank you!', false, now() - interval '1 day'),
-  ('e4010404-4401-4401-4401-440104040404', 'f4010101-4401-4401-4401-440101010101', 'agent', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'Glad to hear! Marking this ticket as resolved. Have a great day.', false, now() - interval '1 day')
+  -- Thread for Database replication lag (f4020202)
+  ('e4020101-1111-1111-1111-111111111111', 'f4020202-2222-2222-2222-222222222222', 'customer', null, 'Urgent! Our European users are reporting that updates take more than 10 seconds to reflect. We verified our database primary is responding fine, but the read replica in eu-west-1 seems to have significant replication lag. We need immediate engineering review.', false, now() - interval '4 hours'),
+  ('e4020202-2222-2222-2222-222222222222', 'f4020202-2222-2222-2222-222222222222', 'agent', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'Internal Note: High replication lag confirmed in AWS CloudWatch. Escalated to Marcus Lead for server operations.', true, now() - interval '1 hour'),
+
+  -- Thread for resolved seat limit issue (f6010101)
+  ('e6010101-1111-1111-1111-111111111111', 'f6010101-1111-1111-1111-111111111111', 'customer', null, 'Hello, we want to add 3 more members to our workspace, but the "Add User" button is greyed out. We are on the Pro plan.', false, now() - interval '2 days'),
+  ('e6010202-2222-2222-2222-222222222222', 'f6010101-1111-1111-1111-111111111111', 'agent', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'Hi Jane, the seat count is controlled by your subscription tier. You have hit the default limit of 5 seats. I have unlocked 3 additional seats in your plan. You can now add the new members from your dashboard settings. Let me know if you run into any issues.', false, now() - interval '1 day'),
+  ('e6010303-3333-3333-3333-333333333333', 'f6010101-1111-1111-1111-111111111111', 'customer', null, 'Got it! Added them successfully. Thank you for the quick help!', false, now() - interval '1 day')
 on conflict (id) do nothing;
 
 -- ── 14. Seed Escalations ──────────────────────────────────────────────────────
 insert into public.escalation (id, ticket_id, from_user, to_user, reason, status, created_at)
 values
-  ('e1010101-1101-1101-1101-110101010101', 'f3010101-3301-3301-3301-330101010101', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2', 'Database upgrade lock deadlock during migration.', 'open', now() - interval '2 hours')
+  ('e1010101-1111-1111-1111-111111111111', 'f4010101-1111-1111-1111-111111111111', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2', 'Requires legal department document execution and signature approval.', 'open', now() - interval '4 hours'),
+  ('e2020202-2222-2222-2222-222222222222', 'f4020202-2222-2222-2222-222222222222', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2', 'Database replication lag eu-west-1 read replica exceeds 10s SLA.', 'open', now() - interval '1 hour')
 on conflict (id) do nothing;
 
 -- ── 15. Seed Activity Logs ────────────────────────────────────────────────────
 insert into public.ticket_activity (id, ticket_id, actor_id, action, previous_value, new_value, created_at)
 values
-  ('a1010101-1101-1101-1101-110101010101', 'f4010101-4401-4401-4401-440101010101', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'status_change', '{"status": "open"}', '{"status": "resolved"}', now() - interval '1 day'),
-  ('a2010101-2201-2201-2201-220101010101', 'f3010101-3301-3301-3301-330101010101', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'status_change', '{"status": "open"}', '{"status": "escalated"}', now() - interval '2 hours'),
-  ('a2020202-2202-2202-2202-220202020202', 'f3010101-3301-3301-3301-330101010101', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'assignment_change', '{"assigned_to": "a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1"}', '{"assigned_to": "b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2"}', now() - interval '2 hours')
+  ('a1010101-1111-1111-1111-111111111111', 'f6010101-1111-1111-1111-111111111111', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'status_change', '{"status": "open"}', '{"status": "resolved"}', now() - interval '1 day'),
+  ('a2010101-1111-1111-1111-111111111111', 'f4010101-1111-1111-1111-111111111111', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'status_change', '{"status": "open"}', '{"status": "escalated"}', now() - interval '4 hours'),
+  ('a2020202-2222-2222-2222-222222222222', 'f4010101-1111-1111-1111-111111111111', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'assignment_change', '{"assigned_to": null}', '{"assigned_to": "b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2"}', now() - interval '4 hours'),
+  ('a3010101-1111-1111-1111-111111111111', 'f4020202-2222-2222-2222-222222222222', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'status_change', '{"status": "open"}', '{"status": "escalated"}', now() - interval '1 hour'),
+  ('a3020202-2222-2222-2222-222222222222', 'f4020202-2222-2222-2222-222222222222', 'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', 'assignment_change', '{"assigned_to": null}', '{"assigned_to": "b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2"}', now() - interval '1 hour')
 on conflict (id) do nothing;

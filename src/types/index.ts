@@ -1,6 +1,6 @@
 export type UserRole = "agent" | "lead" | "admin";
 
-export type UserStatus = "active" | "inactive";
+export type UserStatus = "active" | "inactive" | "invited";
 
 export type TicketStatus = "open" | "pending" | "resolved" | "escalated";
 

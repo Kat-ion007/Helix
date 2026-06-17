@@ -55,6 +55,7 @@ function StatusBadge({ status }: { status: UserStatus }) {
   const styles: Record<UserStatus, string> = {
     active: "bg-success/15 text-success border-success/20",
     inactive: "bg-danger/15 text-danger border-danger/20",
+    invited: "bg-warning/15 text-warning border-warning/20",
   }
 
   return (

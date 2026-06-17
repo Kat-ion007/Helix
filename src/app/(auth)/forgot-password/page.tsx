@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/browser"
-import { Mail, Loader2, AlertTriangle, CheckCircle, ArrowLeft } from "lucide-react"
+import { Mail, AlertTriangle, CheckCircle, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export default function ForgotPasswordPage() {

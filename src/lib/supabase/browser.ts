@@ -7,7 +7,7 @@ export function createClient() {
 
   if (!url || !anonKey) {
     // Return a dummy client structure during next build to prevent static rendering crashes
-    return {} as any;
+    return {} as unknown as ReturnType<typeof createBrowserClient<Database>>;
   }
 
   return createBrowserClient<Database>(url, anonKey);

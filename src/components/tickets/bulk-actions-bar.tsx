@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase/browser"
 import { withTimeout } from "@/lib/supabase/query"
 import { useInboxFilterStore } from "@/store/inbox-filter-store"
+import { useUserStore } from "@/store/user-store"
 import { toast } from "@/store/toast-store"
 import { Modal } from "@/components/ui/modal"
 import { Button } from "@/components/ui/button"
@@ -13,6 +14,7 @@ import { Users, CheckSquare, X, ShieldAlert } from "lucide-react"
 interface Agent {
   id: string
   name: string
+  role: string
 }
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -35,6 +37,7 @@ interface BulkActionsBarProps {
 
 export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
   const { selectedTicketIds, clearSelection } = useInboxFilterStore()
+  const { profile } = useUserStore()
   const [agents, setAgents] = useState<Agent[]>([])
   const [isUpdating, setIsUpdating] = useState(false)
 
@@ -48,7 +51,7 @@ export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
         const { data } = await withTimeout(
           Promise.resolve(supabase
             .from("user")
-            .select("id, name")
+            .select("id, name, role")
             .order("name", { ascending: true })),
           15000
         )
@@ -70,13 +73,15 @@ export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
 
     try {
       const { error, count } = await withTimeout(
-        Promise.resolve(supabase
-          .from("ticket")
-          .update({
-            status: confirmStatus,
-            updated_at: new Date().toISOString(),
-          })
-          .in("id", selectedTicketIds)),
+        Promise.resolve(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase.from("ticket") as any)
+            .update({
+              status: confirmStatus as TicketStatus,
+              updated_at: new Date().toISOString(),
+            })
+            .in("id", selectedTicketIds)
+        ),
         15000
       )
 
@@ -112,13 +117,15 @@ export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
 
     try {
       const { error, count } = await withTimeout(
-        Promise.resolve(supabase
-          .from("ticket")
-          .update({
-            assigned_to: confirmAssign === "unassigned" ? null : confirmAssign,
-            updated_at: new Date().toISOString(),
-          })
-          .in("id", selectedTicketIds)),
+        Promise.resolve(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase.from("ticket") as any)
+            .update({
+              assigned_to: confirmAssign === "unassigned" ? null : confirmAssign,
+              updated_at: new Date().toISOString(),
+            })
+            .in("id", selectedTicketIds)
+        ),
         15000
       )
 
@@ -186,11 +193,18 @@ export function BulkActionsBar({ onActionCompleted }: BulkActionsBarProps) {
               Assign Agent...
             </option>
             <option value="unassigned">Unassign</option>
-            {agents.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
+            {agents
+              .filter((a) => {
+                if (profile?.role === "agent") {
+                  return a.role === "agent"
+                }
+                return true
+              })
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
           </select>
 
           <Button

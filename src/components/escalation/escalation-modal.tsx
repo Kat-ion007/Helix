@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import type { TicketWithDetails } from "@/store/ticket-store"
 import type { User } from "@/types"
 import { AlertTriangle, ArrowUpRight } from "lucide-react"
+import { useUserStore } from "@/store/user-store"
 
 interface EscalationModalProps {
   isOpen: boolean
@@ -27,6 +28,7 @@ export function EscalationModal({
   const [reason, setReason] = useState("")
   const [error, setError] = useState<string | null>(null)
   const { escalate, isSubmitting } = useEscalateTicket()
+  const { profile } = useUserStore()
 
   const handleSubmit = async () => {
     if (!toUserId) {
@@ -90,11 +92,18 @@ export function EscalationModal({
               className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="">Select agent or lead...</option>
-              {agents.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} ({a.role})
-                </option>
-              ))}
+              {agents
+                .filter((a) => {
+                  if (profile?.role === "agent") {
+                    return a.role === "lead" || a.role === "admin"
+                  }
+                  return true
+                })
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} ({a.role})
+                  </option>
+                ))}
             </select>
           </div>
 
