@@ -20,91 +20,47 @@ export default function SetPasswordPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   useEffect(() => {
-    const hash = typeof window !== "undefined" ? window.location.hash : ""
-    const query = typeof window !== "undefined" ? window.location.search : ""
-    const searchParams = new URLSearchParams(query)
-    const hasToken =
-      hash.includes("access_token") ||
-      hash.includes("type=invite") ||
-      hash.includes("type=recovery") ||
-      searchParams.has("code")
+    const searchParams = new URLSearchParams(
+      typeof window !== "undefined" ? window.location.search : ""
+    )
 
-    const hasError =
-      hash.includes("error=") ||
-      hash.includes("error_description") ||
-      searchParams.has("error") ||
-      searchParams.has("error_description")
-
-    let timer: ReturnType<typeof setTimeout> | null = null
-
-    async function handleAuth() {
-      if (hasError) {
-        console.warn("[SetPassword] Landing page detected auth error:", hash || query)
-        setHasSession(false)
-        return
-      }
-
-      if (searchParams.has("code")) {
-        const code = searchParams.get("code")
-        if (code) {
-          try {
-            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-            if (exchangeError) throw exchangeError
-          } catch (err) {
-            console.error("[SetPassword] Failed to exchange code for session:", err)
-            setHasSession(false)
-            return
-          }
-        }
-      }
-
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session) {
-          if (!hasToken) {
-            router.push("/inbox")
-          } else {
-            setHasSession(true)
-          }
-        } else {
-          // Wait a brief moment to process the hash fragment if the user was just redirected from email
-          timer = setTimeout(async () => {
-            try {
-              const { data: { session: retrySession } } = await supabase.auth.getSession()
-              if (retrySession && !hasToken) {
-                router.push("/inbox")
-              } else {
-                setHasSession(!!retrySession)
-              }
-            } catch (err) {
-              console.error("[SetPassword] Retry session fetch failed:", err)
-              setHasSession(false)
-            }
-          }, 1200)
-        }
-      } catch (err) {
-        console.error("[SetPassword] Initial session fetch failed:", err)
-        setHasSession(false)
-      }
+    // The /auth/callback route appends ?error=link-expired if the code exchange failed.
+    if (searchParams.has("error")) {
+      console.warn("[SetPassword] Arrived with error param:", searchParams.get("error"))
+      setHasSession(false)
+      return
     }
 
-    handleAuth()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+    // The /auth/callback route exchanges the PKCE code server-side and then
+    // redirects here with the session already stored in cookies. We just need
+    // to verify the session exists.
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        if (!hasToken) {
-          router.push("/inbox")
-        } else {
-          setHasSession(true)
+        setHasSession(true)
+      } else {
+        // No session — user navigated here directly without a valid invite link.
+        // Subscribe briefly in case onAuthStateChange fires (e.g. hash token from
+        // older Supabase implicit flow), with a 3s fallback.
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          (_event: AuthChangeEvent, liveSession: Session | null) => {
+            if (liveSession) setHasSession(true)
+          }
+        )
+
+        const fallbackTimer = setTimeout(() => {
+          console.warn("[SetPassword] No session found — showing invalid link screen")
+          setHasSession(false)
+          subscription.unsubscribe()
+        }, 3000)
+
+        return () => {
+          clearTimeout(fallbackTimer)
+          subscription.unsubscribe()
         }
       }
     })
-
-    return () => {
-      if (timer) clearTimeout(timer)
-      subscription.unsubscribe()
-    }
   }, [router])
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

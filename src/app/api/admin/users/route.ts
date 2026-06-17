@@ -47,12 +47,23 @@ export async function POST(request: Request) {
     }
 
     const adminClient = createAdminClient()
-    const origin = request.headers.get("origin")
+    // Use the explicit app URL env var so the invite link always points to the correct
+    // deployed origin. Falling back to the request Origin header as a last resort.
+    // IMPORTANT: ensure NEXT_PUBLIC_APP_URL is in Supabase Auth → Redirect URLs allowlist.
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      request.headers.get("origin") ||
+      ""
 
     // 1. Invite user in Supabase Auth
+    // redirectTo points to /auth/callback (not /set-password directly).
+    // With PKCE flow (@supabase/ssr), Supabase appends ?code= to the redirect URL.
+    // The /auth/callback route handler exchanges the code server-side, sets the
+    // session cookie, then redirects to /set-password with a live session.
+    // IMPORTANT: ensure {appUrl}/auth/callback is in Supabase Auth → Redirect URLs allowlist.
     const { data: authUser, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
       data: { name },
-      redirectTo: origin ? `${origin}/set-password` : undefined
+      redirectTo: appUrl ? `${appUrl}/auth/callback` : undefined,
     })
 
     if (inviteError) throw inviteError

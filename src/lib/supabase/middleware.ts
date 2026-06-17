@@ -33,6 +33,8 @@ export async function updateSession(request: NextRequest) {
   const isForgotPasswordPage = request.nextUrl.pathname === "/forgot-password";
   const isAuthPage = request.nextUrl.pathname === "/" || isLoginPage || isForgotPasswordPage;
   const isSetPasswordPage = request.nextUrl.pathname === "/set-password";
+  // /auth/callback handles PKCE code exchange — must be accessible without a session
+  const isCallbackPage = request.nextUrl.pathname.startsWith("/auth/callback");
 
   // Authenticate user against Supabase Auth service (GetUser is more secure than GetSession)
   let user;
@@ -41,7 +43,10 @@ export async function updateSession(request: NextRequest) {
     user = result.data.user;
   } catch (err) {
     console.error("[Middleware] Auth getUser() failed:", err);
-    if (!isAuthPage && !isSetPasswordPage) {
+    if (!isAuthPage && !isSetPasswordPage && !isCallbackPage) {
+      if (request.nextUrl.pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);
@@ -50,7 +55,10 @@ export async function updateSession(request: NextRequest) {
   }
 
   // 1. Unauthenticated users: redirect to /login
-  if (!user && !isAuthPage && !isSetPasswordPage) {
+  if (!user && !isAuthPage && !isSetPasswordPage && !isCallbackPage) {
+    if (request.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
@@ -80,6 +88,9 @@ export async function updateSession(request: NextRequest) {
     // 3a. Check if account is inactive
     if (profile && profile.status === "inactive") {
       if (!isAuthPage) {
+        if (request.nextUrl.pathname.startsWith("/api/")) {
+          return NextResponse.json({ error: "Unauthorized - account is inactive" }, { status: 401 });
+        }
         const url = request.nextUrl.clone();
         url.pathname = "/login";
         url.searchParams.set("error", "inactive");
